@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap");
 
 @theme {
   --color-lava: #FF3621;
@@ -20,7 +21,4 @@
   --font-mono: "DM Mono", ui-monospace, monospace;
 }
 
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap");
-
-html, body { font-family: var(--font-sans); background: var(--color-cream); color: var(--color-ink); }
-body { margin: 0; }
+html, body { margin: 0; font-family: var(--font-sans); background: var(--color-cream); color: var(--color-ink); }
