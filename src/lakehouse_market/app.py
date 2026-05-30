@@ -11,11 +11,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from .routers import labor, meta
+from .routers import labor, loyalty, meta
 
 app = FastAPI(title="Lakehouse Market · Homebase", version="0.1.0")
 app.include_router(meta.router)
 app.include_router(labor.router)
+app.include_router(loyalty.router)
 
 
 @app.get("/api/health")
