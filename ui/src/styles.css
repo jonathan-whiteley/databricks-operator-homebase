@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@theme {
+  --color-lava: #FF3621;
+  --color-lava-soft: #FFE9E5;
+  --color-navy: #0B2026;
+  --color-navy-soft: #1B5162;
+  --color-cream: #FAF8F4;
+  --color-paper: #FFFFFF;
+  --color-ink: #0B2026;
+  --color-ink-soft: #4A5963;
+  --color-hairline: #E5E1DA;
+  --color-success: #00A972;
+  --color-warning: #FBB300;
+  --color-info: #4462C9;
+  --color-rose: #98102A;
+  --color-teal: #1B5162;
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+}
+
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap");
+
+html, body { font-family: var(--font-sans); background: var(--color-cream); color: var(--color-ink); }
+body { margin: 0; }
