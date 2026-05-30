@@ -68,3 +68,26 @@ def digest(store_id: int):
     text = call_fm(prompt)
     _DIGEST_CACHE[store_id] = (now, text)
     return {"text": text, "generated_at": now}
+
+
+from ..deps import get_lakebase_pool
+
+
+class ReviewAction(BaseModel):
+    store_id: int
+    review_id: int
+    action: str  # 'respond' | 'flag' | 'resolve'
+    response_text: str | None = None
+    manager_id: str | None = "demo-manager"
+
+
+@router.post("/review-action")
+async def review_action(req: ReviewAction):
+    pool = await get_lakebase_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO app_review_responses (store_id, review_id, action, response_text, manager_id)
+               VALUES ($1,$2,$3,$4,$5) RETURNING id""",
+            req.store_id, req.review_id, req.action, req.response_text, req.manager_id,
+        )
+        return {"id": row["id"]}

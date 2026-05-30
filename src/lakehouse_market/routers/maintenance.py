@@ -45,3 +45,42 @@ def telemetry(equipment_id: int, days: int = 14):
            ORDER BY ts""",
         {"equipment_id": equipment_id, "days": days},
     )
+
+
+from ..deps import get_lakebase_pool
+
+
+class WorkOrder(BaseModel):
+    store_id: int
+    equipment_id: int
+    target_date: str | None = None
+    notes: str | None = None
+    manager_id: str | None = "demo-manager"
+
+
+@router.post("/work-order")
+async def work_order(req: WorkOrder):
+    pool = await get_lakebase_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO app_work_orders (store_id, equipment_id, target_date, notes, manager_id)
+               VALUES ($1,$2,$3::date,$4,$5) RETURNING id""",
+            req.store_id, req.equipment_id, req.target_date, req.notes, req.manager_id,
+        )
+        return {"id": row["id"]}
+
+
+class WorkOrderStatusUpdate(BaseModel):
+    work_order_id: int
+    status: str  # 'open' | 'in_progress' | 'done'
+
+
+@router.post("/work-order/status")
+async def work_order_status(req: WorkOrderStatusUpdate):
+    pool = await get_lakebase_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE app_work_orders SET status = $1, updated_at = now() WHERE id = $2",
+            req.status, req.work_order_id,
+        )
+        return {"ok": True}

@@ -81,3 +81,26 @@ def map_points(store_id: int):
            LIMIT 2000""",
         {"store_id": store_id},
     )
+
+
+from ..deps import get_lakebase_pool
+
+
+class OfferPush(BaseModel):
+    store_id: int
+    member_id: int | None = None
+    offer_id: int
+    scope: str  # 'member' | 'counter_prompt'
+    daypart: str | None = None
+
+
+@router.post("/offer-push")
+async def offer_push(req: OfferPush):
+    pool = await get_lakebase_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO app_offer_pushes (store_id, member_id, offer_id, scope, daypart)
+               VALUES ($1,$2,$3,$4,$5) RETURNING id""",
+            req.store_id, req.member_id, req.offer_id, req.scope, req.daypart,
+        )
+        return {"id": row["id"]}

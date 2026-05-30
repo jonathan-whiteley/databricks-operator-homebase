@@ -64,3 +64,27 @@ def tomorrow_deliveries(store_id: int, date: str):
            ORDER BY supplier_name""",
         {"store_id": store_id, "date": date},
     )
+
+
+from ..deps import get_lakebase_pool
+
+
+class ReleasePO(BaseModel):
+    store_id: int
+    sku_id: int
+    supplier_id: int
+    quantity: int
+    target_date: str
+    manager_id: str | None = "demo-manager"
+
+
+@router.post("/release-po")
+async def release_po(req: ReleasePO):
+    pool = await get_lakebase_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO app_purchase_orders (store_id, sku_id, supplier_id, quantity, target_date, manager_id)
+               VALUES ($1,$2,$3,$4,$5::date,$6) RETURNING id""",
+            req.store_id, req.sku_id, req.supplier_id, req.quantity, req.target_date, req.manager_id,
+        )
+        return {"id": row["id"]}
