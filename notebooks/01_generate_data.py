@@ -5,10 +5,11 @@
 
 # COMMAND ----------
 import dbldatagen as dg
+import numpy as np
 from pyspark.sql import functions as F
 from pyspark.sql.types import *
 from mimesis import Address, Person
-from _gen_lib import STORE_COUNT, SEED
+from _gen_lib import DAYPART_LABELS, SEED, STORE_COUNT
 import random
 
 CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "jdub_demo"  # type: ignore

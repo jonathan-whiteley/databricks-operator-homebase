@@ -11,6 +11,7 @@ def test_warehouse_client_returns_singleton(monkeypatch):
     get_settings.cache_clear()
     deps_mod.get_warehouse_client.cache_clear()
 
+    monkeypatch.setattr(deps_mod, "WorkspaceClient", lambda: object())
     with patch.object(deps_mod, "dbsql") as mock_dbsql:
         mock_dbsql.connect.return_value = object()
         c1 = deps_mod.get_warehouse_client()

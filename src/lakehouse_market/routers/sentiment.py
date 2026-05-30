@@ -80,13 +80,13 @@ class TimelinePoint(BaseModel):
 @router.get("/timeline", response_model=list[TimelinePoint])
 def timeline(store_id: int, days: int = 30):
     return fetch_all(
-        """SELECT cast(r.ts AS string) AS date,
+        """SELECT cast(to_date(r.ts) AS string) AS date,
               count_if(rs.sentiment='positive') AS positive,
               count_if(rs.sentiment='neutral') AS neutral,
               count_if(rs.sentiment='negative') AS negative
            FROM reviews r JOIN review_sentiment rs USING (review_id)
            WHERE r.store_id = :store_id AND r.ts > current_date() - INTERVAL :days DAYS
-           GROUP BY r.ts ORDER BY r.ts""",
+           GROUP BY to_date(r.ts) ORDER BY to_date(r.ts)""",
         {"store_id": store_id, "days": days},
     )
 
