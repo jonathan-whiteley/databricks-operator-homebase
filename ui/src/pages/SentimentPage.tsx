@@ -7,6 +7,7 @@ import { GenieChat } from "@/components/GenieChat";
 import { MetricCard } from "@/components/MetricCard";
 import { api, useApi } from "@/lib/api";
 import { useStoreId } from "@/state/store";
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type Inbox = {
   review_id: number;
@@ -25,6 +26,11 @@ export default function SentimentPage() {
   const qc = useQueryClient();
   const inbox = useApi<Inbox[]>(["sentiment-inbox", storeId, since], "/sentiment/inbox", { store_id: storeId, since });
   const digest = useApi<Digest>(["sentiment-digest", storeId], "/sentiment/digest", { store_id: storeId });
+  const timeline = useApi<{ date: string; positive: number; neutral: number; negative: number }[]>(
+    ["sent-timeline", storeId],
+    "/sentiment/timeline",
+    { store_id: storeId, days: 30 },
+  );
   const [drafting, setDrafting] = useState<number | null>(null);
   const [text, setText] = useState("");
 
@@ -64,6 +70,21 @@ export default function SentimentPage() {
           <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
             {digest.data?.text ?? "Generating…"}
           </p>
+        </section>
+        <section className="rounded-lg border border-[color:var(--color-hairline)] bg-white p-4">
+          <h3 className="mb-2 text-sm font-semibold text-[color:var(--color-ink)]">Sentiment · last 30 days</h3>
+          <div className="h-56">
+            <ResponsiveContainer>
+              <AreaChart data={timeline.data ?? []} stackOffset="none">
+                <XAxis dataKey="date" stroke="#4A5963" fontSize={11} />
+                <YAxis stroke="#4A5963" fontSize={11} />
+                <Tooltip />
+                <Area type="monotone" dataKey="positive" stackId="1" stroke="#00A972" fill="#00A972" fillOpacity={0.5} />
+                <Area type="monotone" dataKey="neutral" stackId="1" stroke="#9CA3AF" fill="#9CA3AF" fillOpacity={0.4} />
+                <Area type="monotone" dataKey="negative" stackId="1" stroke="#FF3621" fill="#FF3621" fillOpacity={0.5} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </section>
         <DataTable
           rows={inbox.data ?? []}

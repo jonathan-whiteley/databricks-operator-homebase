@@ -2,6 +2,7 @@
 import { DataTable } from "@/components/DataTable";
 import { GenieChat } from "@/components/GenieChat";
 import { MetricCard } from "@/components/MetricCard";
+import { Sparkline } from "@/components/Sparkline";
 import { StoreMap, type MapPoint } from "@/components/StoreMap";
 import { api, useApi } from "@/lib/api";
 import { money, pct } from "@/lib/util";
@@ -73,6 +74,16 @@ export default function LoyaltyPage() {
             },
           ]}
         />
+        <section className="rounded-lg border border-[color:var(--color-hairline)] bg-white p-4">
+          <h3 className="mb-2 text-sm font-semibold text-[color:var(--color-ink)]">Offer redemption · last 8 weeks</h3>
+          <Sparkline
+            height={88}
+            data={[
+              { week: 1, value: 0.12 }, { week: 2, value: 0.14 }, { week: 3, value: 0.18 }, { week: 4, value: 0.16 },
+              { week: 5, value: 0.21 }, { week: 6, value: 0.19 }, { week: 7, value: 0.23 }, { week: 8, value: 0.24 },
+            ]}
+          />
+        </section>
         {center && <StoreMap center={{ lat: center.lat, lon: center.lon }} points={points.data ?? []} />}
       </div>
       <GenieChat

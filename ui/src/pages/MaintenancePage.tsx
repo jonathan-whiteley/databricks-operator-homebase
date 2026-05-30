@@ -1,10 +1,12 @@
 // ui/src/pages/MaintenancePage.tsx
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { DataTable } from "@/components/DataTable";
 import { GenieChat } from "@/components/GenieChat";
 import { KPIRing } from "@/components/KPIRing";
 import { MetricCard } from "@/components/MetricCard";
+import { Sparkline } from "@/components/Sparkline";
 import { api, useApi } from "@/lib/api";
 import { useStoreId } from "@/state/store";
 
@@ -22,6 +24,15 @@ export default function MaintenancePage() {
   const [storeId] = useStoreId();
   const qc = useQueryClient();
   const risks = useApi<Risk[]>(["maint-at-risk", storeId], "/maintenance/at-risk", { store_id: storeId });
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const telemetry = useApi<
+    { ts: string; temperature: number; vibration: number; runtime_hours_delta: number }[]
+  >(
+    ["maint-telemetry", selectedId],
+    "/maintenance/telemetry",
+    { equipment_id: selectedId ?? 0, days: 14 },
+    { enabled: selectedId != null },
+  );
 
   async function schedule(e: Risk) {
     const target = new Date();
@@ -56,6 +67,19 @@ export default function MaintenancePage() {
             { key: "rul_days", header: "RUL days", align: "right" },
             { key: "predicted_failure_date", header: "Predicted failure" },
             {
+              key: "_pick",
+              header: "",
+              align: "right",
+              render: (r) => (
+                <button
+                  onClick={() => setSelectedId(r.equipment_id)}
+                  className="rounded-md border border-[color:var(--color-hairline)] px-2 py-1 text-xs"
+                >
+                  Inspect
+                </button>
+              ),
+            },
+            {
               key: "_act",
               header: "",
               align: "right",
@@ -70,6 +94,34 @@ export default function MaintenancePage() {
             },
           ]}
         />
+        {selectedId != null && (
+          <section className="rounded-lg border border-[color:var(--color-hairline)] bg-white p-4">
+            <h3 className="mb-2 text-sm font-semibold text-[color:var(--color-ink)]">Telemetry · Unit #{selectedId}</h3>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <div className="text-xs text-[color:var(--color-ink-soft)]">Temperature</div>
+                <Sparkline
+                  data={(telemetry.data ?? []).map((t) => ({ ...t, value: t.temperature }))}
+                  color="#FF3621"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-[color:var(--color-ink-soft)]">Vibration</div>
+                <Sparkline
+                  data={(telemetry.data ?? []).map((t) => ({ ...t, value: t.vibration }))}
+                  color="#FBB300"
+                />
+              </div>
+              <div>
+                <div className="text-xs text-[color:var(--color-ink-soft)]">Runtime hrs</div>
+                <Sparkline
+                  data={(telemetry.data ?? []).map((t) => ({ ...t, value: t.runtime_hours_delta }))}
+                  color="#4462C9"
+                />
+              </div>
+            </div>
+          </section>
+        )}
       </div>
       <GenieChat
         tabId="maintenance"

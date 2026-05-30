@@ -70,6 +70,27 @@ def digest(store_id: int):
     return {"text": text, "generated_at": now}
 
 
+class TimelinePoint(BaseModel):
+    date: str
+    positive: int
+    neutral: int
+    negative: int
+
+
+@router.get("/timeline", response_model=list[TimelinePoint])
+def timeline(store_id: int, days: int = 30):
+    return fetch_all(
+        """SELECT cast(r.ts AS string) AS date,
+              count_if(rs.sentiment='positive') AS positive,
+              count_if(rs.sentiment='neutral') AS neutral,
+              count_if(rs.sentiment='negative') AS negative
+           FROM reviews r JOIN review_sentiment rs USING (review_id)
+           WHERE r.store_id = :store_id AND r.ts > current_date() - INTERVAL :days DAYS
+           GROUP BY r.ts ORDER BY r.ts""",
+        {"store_id": store_id, "days": days},
+    )
+
+
 from ..deps import get_lakebase_pool
 
 

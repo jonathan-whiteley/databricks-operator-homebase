@@ -6,6 +6,7 @@ import { GenieChat } from "@/components/GenieChat";
 import { MetricCard } from "@/components/MetricCard";
 import { api, useApi } from "@/lib/api";
 import { useStoreId } from "@/state/store";
+import { Bar, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type Reorder = {
   sku_id: number;
@@ -64,6 +65,28 @@ export default function SupplyPage() {
           <MetricCard label="Tomorrow deliveries" value={deliveries.data?.length ?? "—"} />
           <MetricCard label="Supplier on-time" value="92%" accent="success" />
         </div>
+        <section className="rounded-lg border border-[color:var(--color-hairline)] bg-white p-4">
+          <h3 className="mb-2 text-sm font-semibold text-[color:var(--color-ink)]">Forecast demand vs on-hand (top reorder SKU)</h3>
+          <div className="h-56">
+            <ResponsiveContainer>
+              <ComposedChart
+                data={[
+                  { week: "W1", demand: 40, onhand: 32 },
+                  { week: "W2", demand: 42, onhand: 18 },
+                  { week: "W3", demand: 38, onhand: 9 },
+                  { week: "W4", demand: 45, onhand: 0 },
+                ]}
+              >
+                <XAxis dataKey="week" stroke="#4A5963" fontSize={12} />
+                <YAxis stroke="#4A5963" fontSize={12} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="onhand" name="On hand" fill="#1B5162" radius={[4, 4, 0, 0]} />
+                <Line dataKey="demand" name="Forecast demand" stroke="#FF3621" strokeWidth={2} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
         <section>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[color:var(--color-ink-soft)]">Reorder queue</h2>
           <DataTable

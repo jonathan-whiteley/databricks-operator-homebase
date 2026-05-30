@@ -5,6 +5,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { useApi } from "@/lib/api";
 import { money, pct } from "@/lib/util";
 import { useStoreId } from "@/state/store";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type Today = {
   dayparts: { daypart: string; forecast_revenue: number; forecast_transactions: number }[];
@@ -30,6 +31,19 @@ export default function LaborPage() {
           <MetricCard label="Projected labor %" value={pct(0.282)} sub="vs target 28%" accent="success" />
           <MetricCard label="Vs last week" value="+4.1%" accent="warning" />
         </div>
+        <section className="rounded-lg border border-[color:var(--color-hairline)] bg-white p-4">
+          <h3 className="mb-2 text-sm font-semibold text-[color:var(--color-ink)]">Forecast revenue by day-part</h3>
+          <div className="h-56">
+            <ResponsiveContainer>
+              <BarChart data={data?.dayparts ?? []}>
+                <XAxis dataKey="daypart" stroke="#4A5963" fontSize={12} />
+                <YAxis stroke="#4A5963" fontSize={12} />
+                <Tooltip />
+                <Bar dataKey="forecast_revenue" fill="#FF3621" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           {(data?.dayparts ?? []).map((d) => (
             <DayPartCard
