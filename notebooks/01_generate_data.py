@@ -100,7 +100,7 @@ for mid in range(1, MEMBER_COUNT + 1):
     # 2D gaussian around the store, ~5 mile sigma
     m_lat = float(s.lat + rng.normal(0, 0.07))
     m_lon = float(s.lon + rng.normal(0, 0.07))
-    spend_band = rng.choice(["low", "mid", "high", "whale"], p=[0.55, 0.30, 0.12, 0.03])
+    spend_band = str(rng.choice(["low", "mid", "high", "whale"], p=[0.55, 0.30, 0.12, 0.03]))
     member_rows.append({
         "member_id": mid,
         "preferred_store_id": int(s.store_id),
