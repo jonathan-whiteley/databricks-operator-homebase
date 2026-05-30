@@ -1,0 +1,19 @@
+# Databricks App start command.
+# Uvicorn boots the FastAPI app; static UI is served from src/lakehouse_market/static/.
+command:
+  - uvicorn
+  - lakehouse_market.app:app
+  - --host=0.0.0.0
+  - --port=8000
+
+env:
+  - name: LHM_CATALOG
+    value: jdub_demo
+  - name: LHM_SCHEMA
+    value: lakehouse_market
+  - name: LABOR_ENDPOINT
+    value: lhm-labor-recommender
+  - name: FM_ENDPOINT
+    value: databricks-claude-sonnet-4-6
+  # GENIE_SPACE_ID and Lakebase credentials are set via DAB after first deploy.
+  # See README.md "First-time deploy" for the manual step.

@@ -1,0 +1,10 @@
+# Lakebase (Postgres on Databricks) instance for app write-back.
+# Holds: app_labor_overrides, app_offer_pushes, app_purchase_orders,
+# app_review_responses, app_work_orders. DDL is applied by the app at startup
+# via src/lakehouse_market/lakebase_migrate.py.
+
+resources:
+  database_instances:
+    homebase_db:
+      name: ${var.lakebase_instance}
+      capacity: CU_1

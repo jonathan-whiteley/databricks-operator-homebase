@@ -1,0 +1,8 @@
+# Genie space placeholder.
+# Genie spaces are not yet a first-class DAB resource; the space is created
+# manually once via the workspace UI, scoped to the 21 UC tables listed in
+# docs/superpowers/specs/2026-05-30-lakehouse-market-demo-design.md §8.
+# After creation, set var.genie_space_id (or the GENIE_SPACE_ID env var on
+# the app) and re-deploy. See README.md "First-time deploy".
+
+resources: {}

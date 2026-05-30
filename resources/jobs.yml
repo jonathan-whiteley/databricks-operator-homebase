@@ -1,0 +1,42 @@
+# lhm-init job — runs the 5 data-gen + scoring notebooks in order.
+# Run once after `databricks bundle deploy` to populate Unity Catalog and
+# register the labor model.
+
+resources:
+  jobs:
+    lhm_init_job:
+      name: lhm-init
+      tasks:
+        - task_key: gen_data
+          notebook_task:
+            notebook_path: ./notebooks/01_generate_data.py
+            base_parameters:
+              catalog: ${var.catalog}
+        - task_key: train_labor
+          depends_on:
+            - task_key: gen_data
+          notebook_task:
+            notebook_path: ./notebooks/02_train_labor_model.py
+            base_parameters:
+              catalog: ${var.catalog}
+        - task_key: score_loyalty
+          depends_on:
+            - task_key: gen_data
+          notebook_task:
+            notebook_path: ./notebooks/03_score_loyalty.py
+            base_parameters:
+              catalog: ${var.catalog}
+        - task_key: score_equipment
+          depends_on:
+            - task_key: gen_data
+          notebook_task:
+            notebook_path: ./notebooks/04_score_equipment.py
+            base_parameters:
+              catalog: ${var.catalog}
+        - task_key: label_reviews
+          depends_on:
+            - task_key: gen_data
+          notebook_task:
+            notebook_path: ./notebooks/05_label_reviews.py
+            base_parameters:
+              catalog: ${var.catalog}

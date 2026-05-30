@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+*.egg-info/
+
+# Node / Vite
+ui/node_modules/
+ui/dist/
+ui/.vite/
+*.log
+
+# Built UI lands here; do not commit
+src/lakehouse_market/static/
+
+# Local env + Databricks state
+.env
+.env.local
+.databricks/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,37 @@
+# Databricks Asset Bundle (DAB) — root config for Lakehouse Market · Homebase.
+# Provisions: the App, Lakebase Postgres instance, the labor Model Serving
+# endpoint, and the init job that runs the data-gen + scoring notebooks.
+
+bundle:
+  name: lakehouse-market-e2e-DAIS-demo
+
+variables:
+  catalog:
+    description: Unity Catalog catalog name (must be writable by deployer)
+    default: jdub_demo
+  schema:
+    description: Schema inside the catalog
+    default: lakehouse_market
+  app_name:
+    description: Databricks App name
+    default: lakehouse-market-homebase
+  lakebase_instance:
+    description: Lakebase (Postgres on Databricks) instance name
+    default: lakehouse-market-app-db
+  user_email:
+    description: Deployer email (run-as for jobs + app)
+    default: jonathan.whiteley@databricks.com
+  genie_space_id:
+    description: Genie space id; populated after first manual Genie space creation
+    default: ""
+
+include:
+  - resources/*.yml
+
+targets:
+  default:
+    mode: development
+    workspace:
+      profile: DEFAULT
+    run_as:
+      user_name: ${var.user_email}

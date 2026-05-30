@@ -1,0 +1,14 @@
+# Databricks App resource.
+# The app source code is the entire repo; app.yaml at the repo root tells the
+# runtime how to start the server.
+
+resources:
+  apps:
+    homebase:
+      name: ${var.app_name}
+      source_code_path: .
+      resources:
+        - name: warehouse-default
+          sql_warehouse:
+            id: ${workspace.default_warehouse_id}
+            permission: CAN_USE
