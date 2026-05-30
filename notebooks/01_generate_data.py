@@ -156,3 +156,70 @@ SELECT member_id,
   END AS segment
 FROM loyalty_members
 """)
+
+# COMMAND ----------
+SKU_COUNT = 800
+SUPPLIER_COUNT = 30
+
+# suppliers — Mimesis names + reliability score
+sup_rows = []
+for sid in range(1, SUPPLIER_COUNT + 1):
+    sup_rows.append({
+        "supplier_id": sid,
+        "name": f"{addr.country()} Foods #{sid}",
+        "reliability_score": round(random.uniform(0.78, 0.99), 3),
+        "avg_lead_days": random.randint(2, 14),
+        "on_time_pct": round(random.uniform(0.7, 0.99), 3),
+    })
+spark.createDataFrame(sup_rows).write.mode("overwrite").saveAsTable("suppliers")
+
+# skus
+sku_rows = []
+categories = ["Produce", "Protein", "Dairy", "Bakery", "Beverage", "Packaging", "Cleaning"]
+for sku in range(1, SKU_COUNT + 1):
+    sku_rows.append({
+        "sku_id": sku,
+        "sku_name": f"SKU-{sku:04d}",
+        "category": random.choice(categories),
+        "unit": random.choice(["case", "lb", "ea", "gal"]),
+        "supplier_id": random.randint(1, SUPPLIER_COUNT),
+        "reorder_point": random.randint(8, 60),
+        "case_cost": round(random.uniform(4.0, 75.0), 2),
+    })
+spark.createDataFrame(sku_rows).write.mode("overwrite").saveAsTable("skus")
+
+# inventory_snapshots — last 90 days, per store per sku per day (limit volume by sampling)
+inv = (
+    dg.DataGenerator(spark, rows=STORE_COUNT * SKU_COUNT * 7, partitions=8)  # weekly snapshots
+    .withColumn("store_id", "int", minValue=1, maxValue=STORE_COUNT, random=True)
+    .withColumn("sku_id", "int", minValue=1, maxValue=SKU_COUNT, random=True)
+    .withColumn("snapshot_date", "date", begin="2025-09-01", end="2025-10-30")
+    .withColumn("on_hand", "int", minValue=0, maxValue=180, random=True)
+    .build()
+)
+inv.write.mode("overwrite").saveAsTable("inventory_snapshots")
+
+# purchase_orders (historical, pre-app)
+po = (
+    dg.DataGenerator(spark, rows=4000, partitions=4)
+    .withColumn("po_id", "int", minValue=10000, maxValue=14000)
+    .withColumn("store_id", "int", minValue=1, maxValue=STORE_COUNT, random=True)
+    .withColumn("sku_id", "int", minValue=1, maxValue=SKU_COUNT, random=True)
+    .withColumn("supplier_id", "int", minValue=1, maxValue=SUPPLIER_COUNT, random=True)
+    .withColumn("ordered_qty", "int", minValue=5, maxValue=80, random=True)
+    .withColumn("expected_date", "date", begin="2025-10-01", end="2025-11-15")
+    .withColumn("status", "string", values=["received", "in_transit", "scheduled"], random=True)
+    .build()
+)
+po.write.mode("overwrite").saveAsTable("purchase_orders")
+
+# demand_forecast — per store / sku / week, next 4 weeks
+df = (
+    dg.DataGenerator(spark, rows=STORE_COUNT * SKU_COUNT * 4, partitions=8)
+    .withColumn("store_id", "int", minValue=1, maxValue=STORE_COUNT, random=True)
+    .withColumn("sku_id", "int", minValue=1, maxValue=SKU_COUNT, random=True)
+    .withColumn("week_start", "date", begin="2025-10-27", end="2025-11-17")
+    .withColumn("forecast_units", "int", minValue=2, maxValue=50, random=True)
+    .build()
+)
+df.write.mode("overwrite").saveAsTable("demand_forecast")
