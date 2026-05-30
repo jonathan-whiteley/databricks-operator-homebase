@@ -1,5 +1,5 @@
-# notebooks/02_train_labor_model.py
 # Databricks notebook source
+# notebooks/02_train_labor_model.py
 # COMMAND ----------
 # MAGIC %pip install scikit-learn mlflow
 

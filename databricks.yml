@@ -18,6 +18,9 @@ variables:
   lakebase_instance:
     description: Lakebase (Postgres on Databricks) instance name
     default: lakehouse-market-app-db
+  warehouse_id:
+    description: SQL warehouse id the app should read from (Serverless Starter Warehouse by default)
+    default: "0168e23e24e6ae10"
   user_email:
     description: Deployer email (run-as for jobs + app)
     default: jonathan.whiteley@databricks.com

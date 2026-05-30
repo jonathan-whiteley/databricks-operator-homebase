@@ -1,5 +1,5 @@
-# notebooks/03_score_loyalty.py
 # Databricks notebook source
+# notebooks/03_score_loyalty.py
 # COMMAND ----------
 CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "jdub_demo"
 spark.sql(f"USE CATALOG {CATALOG}")

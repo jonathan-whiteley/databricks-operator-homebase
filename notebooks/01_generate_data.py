@@ -1,5 +1,5 @@
-# notebooks/01_generate_data.py
 # Databricks notebook source
+# notebooks/01_generate_data.py
 # COMMAND ----------
 # MAGIC %pip install dbldatagen mimesis polars
 

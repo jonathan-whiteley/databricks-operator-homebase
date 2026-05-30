@@ -1,5 +1,5 @@
-# notebooks/05_label_reviews.py
 # Databricks notebook source
+# notebooks/05_label_reviews.py
 # COMMAND ----------
 # MAGIC %pip install databricks-sdk pandas
 

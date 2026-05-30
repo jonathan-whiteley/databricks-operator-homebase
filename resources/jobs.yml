@@ -9,34 +9,34 @@ resources:
       tasks:
         - task_key: gen_data
           notebook_task:
-            notebook_path: ./notebooks/01_generate_data.py
+            notebook_path: ../notebooks/01_generate_data.py
             base_parameters:
               catalog: ${var.catalog}
         - task_key: train_labor
           depends_on:
             - task_key: gen_data
           notebook_task:
-            notebook_path: ./notebooks/02_train_labor_model.py
+            notebook_path: ../notebooks/02_train_labor_model.py
             base_parameters:
               catalog: ${var.catalog}
         - task_key: score_loyalty
           depends_on:
             - task_key: gen_data
           notebook_task:
-            notebook_path: ./notebooks/03_score_loyalty.py
+            notebook_path: ../notebooks/03_score_loyalty.py
             base_parameters:
               catalog: ${var.catalog}
         - task_key: score_equipment
           depends_on:
             - task_key: gen_data
           notebook_task:
-            notebook_path: ./notebooks/04_score_equipment.py
+            notebook_path: ../notebooks/04_score_equipment.py
             base_parameters:
               catalog: ${var.catalog}
         - task_key: label_reviews
           depends_on:
             - task_key: gen_data
           notebook_task:
-            notebook_path: ./notebooks/05_label_reviews.py
+            notebook_path: ../notebooks/05_label_reviews.py
             base_parameters:
               catalog: ${var.catalog}

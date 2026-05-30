@@ -10,9 +10,10 @@ resources:
       resources:
         - name: warehouse-default
           sql_warehouse:
-            id: ${workspace.default_warehouse_id}
+            id: ${var.warehouse_id}
             permission: CAN_USE
         - name: homebase-db
           database:
-            database_name: ${var.lakebase_instance}
+            instance_name: ${var.lakebase_instance}
+            database_name: homebase
             permission: CAN_CONNECT_AND_CREATE
