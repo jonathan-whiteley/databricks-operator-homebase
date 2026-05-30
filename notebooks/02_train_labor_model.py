@@ -5,6 +5,7 @@
 
 # COMMAND ----------
 import mlflow
+from mlflow.models import infer_signature
 from sklearn.linear_model import ElasticNet
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
@@ -30,6 +31,16 @@ pipe = Pipeline([("pre", pre), ("reg", ElasticNet(alpha=0.05))])
 
 mlflow.set_experiment("/Shared/lhm-labor-recommender")
 with mlflow.start_run() as run:
-    pipe.fit(df[["forecast_revenue", "daypart"]], df["headcount"])
-    mlflow.sklearn.log_model(pipe, artifact_path="model", registered_model_name=f"{CATALOG}.lakehouse_market.lhm_labor_recommender")
+    X = df[["forecast_revenue", "daypart"]]
+    y = df["headcount"]
+    pipe.fit(X, y)
+    preds = pipe.predict(X.head(5))
+    signature = infer_signature(X.head(5), preds)
+    mlflow.sklearn.log_model(
+        pipe,
+        artifact_path="model",
+        registered_model_name=f"{CATALOG}.lakehouse_market.lhm_labor_recommender",
+        signature=signature,
+        input_example=X.head(2),
+    )
     print("trained run", run.info.run_id)
