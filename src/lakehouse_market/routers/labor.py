@@ -50,3 +50,36 @@ def recommend(req: RecommendRequest):
     )
     pred = int(result["predictions"][0])
     return {"headcount": pred}
+
+
+from ..deps import get_lakebase_pool
+
+
+class OverrideRequest(BaseModel):
+    store_id: int
+    date: str
+    daypart: str
+    headcount: int
+    note: str | None = None
+    manager_id: str | None = "demo-manager"
+
+
+class OverrideResponse(BaseModel):
+    id: int
+
+
+@router.post("/override", response_model=OverrideResponse)
+async def override(req: OverrideRequest):
+    pool = await get_lakebase_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO app_labor_overrides (store_id, date, daypart, headcount, note, manager_id)
+               VALUES ($1, $2::date, $3, $4, $5, $6) RETURNING id""",
+            req.store_id,
+            req.date,
+            req.daypart,
+            req.headcount,
+            req.note,
+            req.manager_id,
+        )
+        return {"id": row["id"]}
