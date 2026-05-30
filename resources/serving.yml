@@ -1,15 +1,17 @@
 # Model Serving endpoint — the only custom-served model in the demo.
-# The model is registered to Unity Catalog by notebook 02_train_labor_model.py;
-# the serving endpoint pins to version 1 of that registered model.
+# The model is registered to Unity Catalog by notebook 02_train_labor_model.py.
+# NOTE: this resource is disabled on first deploy because the registered model
+# doesn't exist until `make run-init` has run. Uncomment AFTER the init job
+# completes and re-deploy to provision the endpoint.
 
-resources:
-  model_serving_endpoints:
-    lhm_labor_recommender:
-      name: lhm-labor-recommender
-      config:
-        served_entities:
-          - name: labor_v1
-            entity_name: ${var.catalog}.${var.schema}.lhm_labor_recommender
-            entity_version: "1"
-            workload_size: Small
-            scale_to_zero_enabled: true
+resources: {}
+#  model_serving_endpoints:
+#    lhm_labor_recommender:
+#      name: lhm-labor-recommender
+#      config:
+#        served_entities:
+#          - name: labor_v1
+#            entity_name: ${var.catalog}.${var.schema}.lhm_labor_recommender
+#            entity_version: "1"
+#            workload_size: Small
+#            scale_to_zero_enabled: true
