@@ -45,3 +45,42 @@ spark.createDataFrame(dates, ["date"]).write.mode("overwrite").saveAsTable("dim_
 
 times = [(h,) for h in range(24)]
 spark.createDataFrame(times, ["hour"]).write.mode("overwrite").saveAsTable("dim_time")
+
+# COMMAND ----------
+# Labor: daily_sales_forecast (forecast per store per day per day-part)
+import dbldatagen as dg
+from pyspark.sql import functions as F
+
+base_date = "2025-08-01"
+days = 90
+fc = (
+    dg.DataGenerator(spark, rows=STORE_COUNT * days * 4, partitions=4)
+    .withIdOutput()
+    .withColumn("store_id", "int", minValue=1, maxValue=STORE_COUNT, random=True)
+    .withColumn("date", "date", begin=base_date, end="2025-10-29")
+    .withColumn("daypart", "string", values=["Breakfast", "Lunch", "Dinner", "Late"], random=True)
+    .withColumn("forecast_revenue", "double", minValue=300, maxValue=5500, random=True)
+    .withColumn("forecast_transactions", "int", minValue=40, maxValue=900, random=True)
+    .build()
+)
+fc.drop("id").write.mode("overwrite").saveAsTable("daily_sales_forecast")
+
+# hourly_transactions for last 30d
+ht = (
+    dg.DataGenerator(spark, rows=STORE_COUNT * 30 * 24, partitions=4)
+    .withColumn("store_id", "int", minValue=1, maxValue=STORE_COUNT, random=True)
+    .withColumn("ts", "timestamp", begin="2025-10-01 00:00:00", end="2025-10-30 23:00:00")
+    .withColumn("transactions", "int", minValue=5, maxValue=120, random=True)
+    .withColumn("revenue", "double", minValue=20.0, maxValue=2200.0, random=True)
+    .build()
+)
+ht.write.mode("overwrite").saveAsTable("hourly_transactions")
+
+# staff_roster — current crew per store, by role
+roles = ["Cashier", "Cook", "Runner", "Manager"]
+rows = []
+for s in range(1, STORE_COUNT + 1):
+    for r in roles:
+        for n in range(random.randint(3, 8)):
+            rows.append({"store_id": s, "role": r, "employee_name": per.full_name(), "hourly_wage": round(random.uniform(15, 28), 2)})
+spark.createDataFrame(rows).write.mode("overwrite").saveAsTable("staff_roster")
