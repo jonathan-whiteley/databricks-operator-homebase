@@ -1,3 +1,56 @@
+// ui/src/pages/LaborPage.tsx
+import { DayPartCard } from "@/components/DayPartCard";
+import { GenieChat } from "@/components/GenieChat";
+import { MetricCard } from "@/components/MetricCard";
+import { useApi } from "@/lib/api";
+import { money, pct } from "@/lib/util";
+import { useStoreId } from "@/state/store";
+
+type Today = {
+  dayparts: { daypart: string; forecast_revenue: number; forecast_transactions: number }[];
+};
+
 export default function LaborPage() {
-  return <h1 className="text-2xl font-bold">Labor (placeholder)</h1>;
+  const [storeId] = useStoreId();
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, isLoading } = useApi<Today>(
+    ["labor-today", storeId, today],
+    "/labor/today",
+    { store_id: storeId, date: today },
+  );
+  const total = (data?.dayparts ?? []).reduce((a, d) => a + d.forecast_revenue, 0);
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-[color:var(--color-ink)]">Labor</h1>
+        <div className="grid grid-cols-4 gap-3">
+          <MetricCard label="Forecast Today" value={money(total)} sub="across day-parts" accent="lava" />
+          <MetricCard label="Day-parts to lock" value={data?.dayparts.length ?? 0} accent="navy" />
+          <MetricCard label="Projected labor %" value={pct(0.282)} sub="vs target 28%" accent="success" />
+          <MetricCard label="Vs last week" value="+4.1%" accent="warning" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {(data?.dayparts ?? []).map((d) => (
+            <DayPartCard
+              key={d.daypart}
+              daypart={d.daypart}
+              forecast={d.forecast_revenue}
+              transactions={d.forecast_transactions}
+              date={today}
+            />
+          ))}
+        </div>
+        {isLoading && <div className="text-sm text-[color:var(--color-ink-soft)]">Loading forecast…</div>}
+      </div>
+      <GenieChat
+        tabId="labor"
+        chips={[
+          "Why is lunch headcount higher than last Tuesday?",
+          "What was my labor % last Friday vs forecast?",
+          "How does my labor % compare to nearby stores?",
+        ]}
+      />
+    </div>
+  );
 }
