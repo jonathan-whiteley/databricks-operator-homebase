@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from ..config import get_settings
 from ..serving import invoke_serving
 from ..sql_utils import fetch_all
 
@@ -21,16 +22,36 @@ class TodayResponse(BaseModel):
 
 
 @router.get("/today", response_model=TodayResponse)
-def today(store_id: int, date: str):
-    rows = fetch_all(
-        """SELECT daypart, forecast_revenue, forecast_transactions
-           FROM daily_sales_forecast
-           WHERE store_id = :store_id AND date = :date
-           ORDER BY CASE daypart WHEN 'Breakfast' THEN 1 WHEN 'Lunch' THEN 2
-                                 WHEN 'Dinner' THEN 3 WHEN 'Late' THEN 4 END""",
-        {"store_id": store_id, "date": date},
-    )
-    return {"store_id": store_id, "date": date, "dayparts": rows}
+def today(store_id: int, date: str | None = None):
+    # If no row exists for the requested date, fall back to the most recent
+    # date that has data for this store. Demo data ends 2025-10-30 so any
+    # "today" past that returns empty without this fallback.
+    rows = []
+    target_date = date or get_settings().demo_anchor_date
+    if date:
+        rows = fetch_all(
+            """SELECT daypart, forecast_revenue, forecast_transactions
+               FROM daily_sales_forecast
+               WHERE store_id = :store_id AND date = :date
+               ORDER BY CASE daypart WHEN 'Breakfast' THEN 1 WHEN 'Lunch' THEN 2
+                                     WHEN 'Dinner' THEN 3 WHEN 'Late' THEN 4 END""",
+            {"store_id": store_id, "date": date},
+        )
+    if not rows:
+        rows = fetch_all(
+            """WITH latest AS (
+                  SELECT MAX(date) AS d FROM daily_sales_forecast WHERE store_id = :store_id
+               )
+               SELECT daypart, forecast_revenue, forecast_transactions
+               FROM daily_sales_forecast
+               WHERE store_id = :store_id AND date = (SELECT d FROM latest)
+               ORDER BY CASE daypart WHEN 'Breakfast' THEN 1 WHEN 'Lunch' THEN 2
+                                     WHEN 'Dinner' THEN 3 WHEN 'Late' THEN 4 END""",
+            {"store_id": store_id},
+        )
+        if rows:
+            target_date = get_settings().demo_anchor_date
+    return {"store_id": store_id, "date": target_date, "dayparts": rows}
 
 
 class RecommendRequest(BaseModel):

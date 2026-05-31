@@ -6,6 +6,7 @@ import time
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from ..config import get_settings
 from ..fm import call_fm
 from ..sql_utils import fetch_all
 
@@ -23,7 +24,12 @@ class InboxRow(BaseModel):
 
 
 @router.get("/inbox", response_model=list[InboxRow])
-def inbox(store_id: int, since: str, limit: int = 30):
+def inbox(store_id: int, since: str | None = None, limit: int = 30):
+    # Anchor to demo data window (30 days back from the dataset's end) when no
+    # since param is passed so the inbox always populates.
+    anchor = get_settings().demo_anchor_date
+    if not since:
+        since = anchor  # backend will look back 30d via the query below
     rows = fetch_all(
         """SELECT r.review_id, cast(r.ts AS string) AS ts, r.source, r.rating,
                   substring(r.text, 1, 140) AS snippet,
@@ -32,7 +38,9 @@ def inbox(store_id: int, since: str, limit: int = 30):
            FROM reviews r
            LEFT JOIN review_sentiment rs USING (review_id)
            LEFT JOIN review_topics rt USING (review_id)
-           WHERE r.store_id = :store_id AND r.ts >= to_date(:since)
+           WHERE r.store_id = :store_id
+             AND r.ts >= to_date(:since) - INTERVAL 30 DAYS
+             AND r.ts <= to_date(:since)
            GROUP BY r.review_id, r.ts, r.source, r.rating, r.text, rs.sentiment
            ORDER BY r.ts DESC LIMIT :limit""",
         {"store_id": store_id, "since": since, "limit": limit},
@@ -54,12 +62,13 @@ def digest(store_id: int):
     cached = _DIGEST_CACHE.get(store_id)
     if cached and now - cached[0] < 3600:
         return {"text": cached[1], "generated_at": cached[0]}
+    anchor = get_settings().demo_anchor_date
     samples = fetch_all(
         """SELECT r.text, rs.sentiment FROM reviews r
            JOIN review_sentiment rs USING (review_id)
-           WHERE r.store_id = :store_id AND r.ts > current_date() - INTERVAL 7 DAYS
+           WHERE r.store_id = :store_id AND r.ts > to_date(:anchor) - INTERVAL 7 DAYS
            LIMIT 30""",
-        {"store_id": store_id},
+        {"store_id": store_id, "anchor": anchor},
     )
     prompt = (
         "Summarize what guests are saying about this store this week in 3 sentences:\n\n"
@@ -79,15 +88,16 @@ class TimelinePoint(BaseModel):
 
 @router.get("/timeline", response_model=list[TimelinePoint])
 def timeline(store_id: int, days: int = 30):
+    anchor = get_settings().demo_anchor_date
     return fetch_all(
         """SELECT cast(to_date(r.ts) AS string) AS date,
               count_if(rs.sentiment='positive') AS positive,
               count_if(rs.sentiment='neutral') AS neutral,
               count_if(rs.sentiment='negative') AS negative
            FROM reviews r JOIN review_sentiment rs USING (review_id)
-           WHERE r.store_id = :store_id AND r.ts > current_date() - INTERVAL :days DAYS
+           WHERE r.store_id = :store_id AND r.ts > to_date(:anchor) - INTERVAL :days DAYS
            GROUP BY to_date(r.ts) ORDER BY to_date(r.ts)""",
-        {"store_id": store_id, "days": days},
+        {"store_id": store_id, "days": days, "anchor": anchor},
     )
 
 

@@ -40,3 +40,6 @@ resources:
             notebook_path: ../notebooks/05_label_reviews.py
             base_parameters:
               catalog: ${var.catalog}
+        - task_key: ensure_genie_space
+          notebook_task:
+            notebook_path: ../notebooks/06_ensure_genie_space.py

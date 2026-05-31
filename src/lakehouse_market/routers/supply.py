@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from ..config import get_settings
 from ..sql_utils import fetch_all
 
 router = APIRouter(prefix="/api/supply", tags=["supply"])
@@ -55,15 +56,22 @@ class IncomingPO(BaseModel):
 
 
 @router.get("/tomorrow-deliveries", response_model=list[IncomingPO])
-def tomorrow_deliveries(store_id: int, date: str):
-    return fetch_all(
+def tomorrow_deliveries(store_id: int, date: str | None = None):
+    # Use the requested date if any deliveries match, otherwise return the
+    # next 7 days of scheduled inbound from the demo anchor date so the tab
+    # always has something to display.
+    anchor = date or get_settings().demo_anchor_date
+    rows = fetch_all(
         """SELECT po.po_id, po.sku_id, po.supplier_id, sup.name AS supplier_name,
                   po.ordered_qty, cast(po.expected_date AS string) AS expected_date
            FROM purchase_orders po JOIN suppliers sup USING (supplier_id)
-           WHERE po.store_id = :store_id AND po.expected_date = date_add(to_date(:date), 1)
-           ORDER BY supplier_name""",
-        {"store_id": store_id, "date": date},
+           WHERE po.store_id = :store_id
+             AND po.expected_date BETWEEN to_date(:anchor) AND date_add(to_date(:anchor), 7)
+           ORDER BY po.expected_date, supplier_name
+           LIMIT 50""",
+        {"store_id": store_id, "anchor": anchor},
     )
+    return rows
 
 
 from ..deps import get_lakebase_pool

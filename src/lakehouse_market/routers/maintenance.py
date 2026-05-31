@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from ..config import get_settings
 from ..sql_utils import fetch_all
 
 router = APIRouter(prefix="/api/maintenance", tags=["maintenance"])
@@ -38,12 +39,13 @@ class TelemetryRow(BaseModel):
 
 @router.get("/telemetry", response_model=list[TelemetryRow])
 def telemetry(equipment_id: int, days: int = 14):
+    anchor = get_settings().demo_anchor_date
     return fetch_all(
         """SELECT cast(ts AS string) AS ts, temperature, vibration, runtime_hours_delta
            FROM equipment_telemetry
-           WHERE equipment_id = :equipment_id AND ts > current_timestamp() - INTERVAL :days DAYS
+           WHERE equipment_id = :equipment_id AND ts > to_timestamp(:anchor) - INTERVAL :days DAYS
            ORDER BY ts""",
-        {"equipment_id": equipment_id, "days": days},
+        {"equipment_id": equipment_id, "days": days, "anchor": anchor},
     )
 
 
