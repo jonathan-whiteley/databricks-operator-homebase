@@ -11,10 +11,12 @@ env:
     value: jdub_demo
   - name: LHM_SCHEMA
     value: lakehouse_market
+  - name: DATABRICKS_WAREHOUSE_ID
+    # Matches the warehouse-default resource binding (Serverless Starter).
+    value: "0168e23e24e6ae10"
   - name: LABOR_ENDPOINT
     # DAB dev-mode prefixes resource names; production target would drop the prefix.
     value: dev_jonathan_whiteley_lhm-labor-recommender
   - name: FM_ENDPOINT
     value: databricks-claude-sonnet-4-6
-  # GENIE_SPACE_ID and Lakebase credentials are set via DAB after first deploy.
-  # See README.md "First-time deploy" for the manual step.
+  # GENIE_SPACE_ID is set after the Genie space is created.
