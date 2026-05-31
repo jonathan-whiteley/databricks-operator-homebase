@@ -29,12 +29,12 @@ def inbox(store_id: int, since: str | None = None, limit: int = 30):
     # since param is passed so the inbox always populates.
     anchor = get_settings().demo_anchor_date
     if not since:
-        since = anchor  # backend will look back 30d via the query below
+        since = anchor
     rows = fetch_all(
         """SELECT r.review_id, cast(r.ts AS string) AS ts, r.source, r.rating,
                   substring(r.text, 1, 140) AS snippet,
-                  rs.sentiment,
-                  collect_list(rt.topic) AS topics
+                  coalesce(rs.sentiment, 'neutral') AS sentiment,
+                  to_json(collect_list(rt.topic)) AS topics_json
            FROM reviews r
            LEFT JOIN review_sentiment rs USING (review_id)
            LEFT JOIN review_topics rt USING (review_id)
@@ -45,6 +45,13 @@ def inbox(store_id: int, since: str | None = None, limit: int = 30):
            ORDER BY r.ts DESC LIMIT :limit""",
         {"store_id": store_id, "since": since, "limit": limit},
     )
+    import json as _json
+    for r in rows:
+        raw = r.pop("topics_json", "[]") or "[]"
+        try:
+            r["topics"] = _json.loads(raw)
+        except Exception:
+            r["topics"] = []
     return rows
 
 
