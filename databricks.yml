@@ -31,6 +31,13 @@ variables:
 include:
   - resources/*.yml
 
+# Force-include the built UI even though .gitignore excludes it.
+# `make build` writes Vite output to src/lakehouse_market/static/; the App's
+# FastAPI mount serves it at /.
+sync:
+  include:
+    - src/lakehouse_market/static/**
+
 targets:
   default:
     mode: development
