@@ -19,4 +19,9 @@ env:
     value: dev_jonathan_whiteley_lhm-labor-recommender
   - name: FM_ENDPOINT
     value: databricks-claude-sonnet-4-6
-  # GENIE_SPACE_ID is set after the Genie space is created.
+  - name: GENIE_SPACE_ID
+    # Created by notebooks/06_ensure_genie_space.py
+    value: "01f15c9315b117008c9d056472ecdf03"
+  - name: DEMO_ANCHOR_DATE
+    # Synthetic data window ends 2025-10-30; queries use this as "today".
+    value: "2025-10-30"
