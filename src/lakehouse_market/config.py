@@ -36,10 +36,12 @@ def get_settings() -> Settings:
         warehouse_id=os.getenv("DATABRICKS_WAREHOUSE_ID", ""),
         catalog=os.getenv("LHM_CATALOG", "jdub_demo"),
         schema_name=os.getenv("LHM_SCHEMA", "lakehouse_market"),
-        lakebase_host=os.getenv("LAKEBASE_HOST", ""),
-        lakebase_db=os.getenv("LAKEBASE_DB", "homebase"),
-        lakebase_user=os.getenv("LAKEBASE_USER", ""),
-        lakebase_password=os.getenv("LAKEBASE_PASSWORD", ""),
+        # Databricks Apps `database` binding injects PGHOST/PGUSER/PGPASSWORD/PGDATABASE.
+        # Fall back to LAKEBASE_* for local dev / explicit overrides.
+        lakebase_host=os.getenv("LAKEBASE_HOST") or os.getenv("PGHOST", ""),
+        lakebase_db=os.getenv("LAKEBASE_DB") or os.getenv("PGDATABASE", "databricks_postgres"),
+        lakebase_user=os.getenv("LAKEBASE_USER") or os.getenv("PGUSER", ""),
+        lakebase_password=os.getenv("LAKEBASE_PASSWORD") or os.getenv("PGPASSWORD", ""),
         genie_space_id=os.getenv("GENIE_SPACE_ID", ""),
         labor_endpoint=os.getenv("LABOR_ENDPOINT", "lhm-labor-recommender"),
         fm_endpoint=os.getenv("FM_ENDPOINT", "databricks-claude-sonnet-4-6"),
