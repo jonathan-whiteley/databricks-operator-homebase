@@ -9,7 +9,8 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
@@ -44,4 +45,16 @@ def health() -> dict[str, str]:
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 if STATIC_DIR.exists() and any(STATIC_DIR.iterdir()):
-    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
+    # Mount built assets directly for files like /assets/*.js
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+
+    # SPA fallback: any non-API path returns index.html so React Router can take over.
+    @app.get("/{full_path:path}")
+    def spa_fallback(full_path: str):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404)
+        # Try a literal file first (favicon, robots, etc.), then fall back to index.html
+        candidate = STATIC_DIR / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(STATIC_DIR / "index.html")
