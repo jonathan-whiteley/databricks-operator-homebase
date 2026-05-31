@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from ..config import get_settings
 from ..genie import create_conversation, poll_message
 
 router = APIRouter(prefix="/api/genie", tags=["genie"])
@@ -28,6 +29,12 @@ class AskResponse(BaseModel):
 
 @router.post("/ask", response_model=AskResponse)
 def ask(req: AskRequest):
+    if not get_settings().genie_space_id:
+        return {
+            "text": "Genie isn't configured yet. Create a Genie space in the workspace UI and set GENIE_SPACE_ID on the app.",
+            "conversation_id": "",
+            "message_id": "",
+        }
     label = TAB_LABELS.get(req.tab_id, req.tab_id)
     full = (
         f"Context: tab={label}, store_id={req.store_id}. "
