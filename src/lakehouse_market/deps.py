@@ -20,6 +20,8 @@ def get_warehouse_client():
         server_hostname=s.databricks_host.replace("https://", "").rstrip("/"),
         http_path=f"/sql/1.0/warehouses/{s.warehouse_id}",
         credentials_provider=lambda: w.config.authenticate,
+        catalog=s.catalog,
+        schema=s.schema_name,
     )
 
 
