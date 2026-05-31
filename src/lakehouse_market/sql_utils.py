@@ -23,9 +23,22 @@ def render_sql(sql: str, params: Mapping[str, Any]) -> str:
     return _PARAM.sub(sub, sql)
 
 
-def fetch_all(sql: str, params: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
-    rendered = render_sql(sql, params or {})
+def _execute(rendered: str) -> list[dict[str, Any]]:
     with get_warehouse_client().cursor() as cur:
         cur.execute(rendered)
         cols = [d[0] for d in cur.description or []]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+def fetch_all(sql: str, params: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
+    rendered = render_sql(sql, params or {})
+    try:
+        return _execute(rendered)
+    except Exception as e:
+        # Stale session (warehouse auto-stopped) or transient connector errors —
+        # bust the cached connection and retry once.
+        msg = str(e)
+        if "SessionHandle" in msg or "Session" in msg and "closed" in msg or "BAD_REQUEST" in msg:
+            get_warehouse_client.cache_clear()
+            return _execute(rendered)
+        raise
