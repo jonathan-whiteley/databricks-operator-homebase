@@ -20,8 +20,15 @@ def _ws() -> WorkspaceClient:
 
 def create_conversation(question: str) -> dict:
     s = get_settings()
-    url = f"/api/2.0/genie/spaces/{s.genie_space_id}/conversations"
-    return _ws().api_client.do("POST", url, body={"content": question})
+    url = f"/api/2.0/genie/spaces/{s.genie_space_id}/start-conversation"
+    resp = _ws().api_client.do("POST", url, body={"content": question})
+    # start-conversation returns {"conversation_id":"…", "message":{"id":"…", …}}
+    msg = resp.get("message") or {}
+    return {
+        "conversation_id": resp.get("conversation_id") or msg.get("conversation_id", ""),
+        "message_id": msg.get("id") or msg.get("message_id", ""),
+        "status": msg.get("status", "EXECUTING"),
+    }
 
 
 def poll_message(conversation_id: str, message_id: str, timeout_s: int = 25) -> dict:
