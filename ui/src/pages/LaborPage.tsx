@@ -1,4 +1,5 @@
 // ui/src/pages/LaborPage.tsx
+import { ApprovalsTable } from "@/components/ApprovalsTable";
 import { DayPartCard } from "@/components/DayPartCard";
 import { GenieChat } from "@/components/GenieChat";
 import { MetricCard } from "@/components/MetricCard";
@@ -19,23 +20,67 @@ export default function LaborPage() {
     "/labor/today",
     { store_id: storeId, date: today },
   );
-  const total = (data?.dayparts ?? []).reduce((a, d) => a + d.forecast_revenue, 0);
+  const dayparts = data?.dayparts ?? [];
+  const total = dayparts.reduce((a, d) => a + d.forecast_revenue, 0);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-[color:var(--color-ink)]">Labor</h1>
+        <div className="flex items-baseline justify-between">
+          <h1 className="text-2xl font-bold text-[color:var(--color-ink)]">Labor</h1>
+          <p className="text-xs text-[color:var(--color-ink-soft)]">
+            Tap any day-part to override and recompute the crew live.
+          </p>
+        </div>
+
         <div className="grid grid-cols-4 gap-3">
           <MetricCard label="Forecast Today" value={money(total)} sub="across day-parts" accent="lava" />
-          <MetricCard label="Day-parts to lock" value={data?.dayparts.length ?? 0} accent="navy" />
+          <MetricCard label="Day-parts to lock" value={dayparts.length} accent="navy" />
           <MetricCard label="Projected labor %" value={pct(0.282)} sub="vs target 28%" accent="success" />
           <MetricCard label="Vs last week" value="+4.1%" accent="warning" />
         </div>
+
+        <section>
+          <div className="mb-3 flex items-baseline justify-between">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-[color:var(--color-ink)]">
+                By day-part
+              </h2>
+              <p className="mt-0.5 text-xs text-[color:var(--color-ink-soft)]">
+                Forecast, labor %, and recommended crew. Lock when it looks right.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            {dayparts.map((d) => (
+              <DayPartCard
+                key={d.daypart}
+                daypart={d.daypart}
+                forecast={d.forecast_revenue}
+                transactions={d.forecast_transactions}
+                date={today}
+              />
+            ))}
+            {isLoading && dayparts.length === 0 && (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-[240px] animate-pulse rounded-xl border border-[color:var(--color-hairline)] bg-white"
+                />
+              ))
+            )}
+          </div>
+        </section>
+
+        <ApprovalsTable />
+
         <section className="rounded-lg border border-[color:var(--color-hairline)] bg-white p-4">
-          <h3 className="mb-2 text-sm font-semibold text-[color:var(--color-ink)]">Forecast revenue by day-part</h3>
+          <h3 className="mb-2 text-sm font-semibold text-[color:var(--color-ink)]">
+            Forecast revenue by day-part
+          </h3>
           <div className="h-56">
             <ResponsiveContainer>
-              <BarChart data={data?.dayparts ?? []}>
+              <BarChart data={dayparts}>
                 <XAxis dataKey="daypart" stroke="#4A5963" fontSize={12} />
                 <YAxis stroke="#4A5963" fontSize={12} />
                 <Tooltip />
@@ -44,18 +89,6 @@ export default function LaborPage() {
             </ResponsiveContainer>
           </div>
         </section>
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {(data?.dayparts ?? []).map((d) => (
-            <DayPartCard
-              key={d.daypart}
-              daypart={d.daypart}
-              forecast={d.forecast_revenue}
-              transactions={d.forecast_transactions}
-              date={today}
-            />
-          ))}
-        </div>
-        {isLoading && <div className="text-sm text-[color:var(--color-ink-soft)]">Loading forecast…</div>}
       </div>
       <GenieChat
         tabId="labor"
