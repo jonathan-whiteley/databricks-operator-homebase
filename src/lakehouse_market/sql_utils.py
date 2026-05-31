@@ -1,13 +1,21 @@
-"""Tiny SQL helpers: parameter substitution + dict-row fetch.
+"""Tiny SQL helpers: parameter substitution + dict-row fetch + TTL cache.
 We don't use parameterized binding because databricks-sql-connector's
 async story is limited; we render server-side validated inputs only.
 All callers must validate inputs as ints/dates before passing here."""
 from __future__ import annotations
+import os
 import re
+import time
 from typing import Any, Mapping
 from .deps import get_warehouse_client
 
 _PARAM = re.compile(r":(\w+)")
+
+# In-memory TTL cache. Demo workload: read queries are deterministic for a given
+# (rendered SQL) so caching is safe. Default 10-min TTL keeps the warehouse cold
+# most of the day. Disable with LHM_QUERY_CACHE_TTL=0.
+_TTL_SECONDS = int(os.getenv("LHM_QUERY_CACHE_TTL", "600"))
+_CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 
 
 def render_sql(sql: str, params: Mapping[str, Any]) -> str:
@@ -30,15 +38,34 @@ def _execute(rendered: str) -> list[dict[str, Any]]:
         return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
-def fetch_all(sql: str, params: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
-    rendered = render_sql(sql, params or {})
+def _execute_with_retry(rendered: str) -> list[dict[str, Any]]:
     try:
         return _execute(rendered)
     except Exception as e:
         # Stale session (warehouse auto-stopped) or transient connector errors —
         # bust the cached connection and retry once.
         msg = str(e)
-        if "SessionHandle" in msg or "Session" in msg and "closed" in msg or "BAD_REQUEST" in msg:
+        if "SessionHandle" in msg or ("Session" in msg and "closed" in msg) or "BAD_REQUEST" in msg:
             get_warehouse_client.cache_clear()
             return _execute(rendered)
         raise
+
+
+def fetch_all(sql: str, params: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
+    rendered = render_sql(sql, params or {})
+    if _TTL_SECONDS > 0:
+        now = time.time()
+        cached = _CACHE.get(rendered)
+        if cached and now - cached[0] < _TTL_SECONDS:
+            return cached[1]
+        result = _execute_with_retry(rendered)
+        _CACHE[rendered] = (now, result)
+        return result
+    return _execute_with_retry(rendered)
+
+
+def clear_query_cache() -> int:
+    """Drop all cached query results. Returns the number of entries cleared."""
+    n = len(_CACHE)
+    _CACHE.clear()
+    return n
