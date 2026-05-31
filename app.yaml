@@ -25,3 +25,13 @@ env:
   - name: DEMO_ANCHOR_DATE
     # Synthetic data window ends 2025-10-30; queries use this as "today".
     value: "2025-10-30"
+  - name: LAKEBASE_INSTANCE
+    value: "lakehouse-market-app-db"
+  - name: LAKEBASE_HOST
+    # read_write_dns from the Lakebase instance
+    value: "ep-proud-sea-d1ojxh33.database.us-west-2.cloud.databricks.com"
+  - name: LAKEBASE_DB
+    value: "databricks_postgres"
+  - name: LAKEBASE_USER
+    # App SP client_id — Lakebase uses the SP identity + a minted JWT as password
+    value: "5faf2ed0-5391-4a91-94d6-396af6139903"

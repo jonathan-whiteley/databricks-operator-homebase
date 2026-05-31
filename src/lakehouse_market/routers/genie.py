@@ -27,49 +27,36 @@ class AskResponse(BaseModel):
     message_id: str
 
 
+def _strip_markdown(text: str) -> str:
+    """Minimal markdown bold/italic strip so the chat bubble doesn't show asterisks."""
+    # **bold** → bold, *italic* → italic
+    import re as _re
+    text = _re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = _re.sub(r"(?<!\*)\*([^*]+?)\*(?!\*)", r"\1", text)
+    return text
+
+
 def _extract_answer(message: dict, conversation_id: str, message_id: str) -> str:
-    """Genie attachments may contain a plain `text.content` OR a `query` with
-    a description + SQL + rows fetched separately. Stitch them into a single
-    chat-friendly string."""
-    chunks: list[str] = []
-    for att in message.get("attachments", []) or []:
-        t = att.get("text") or {}
-        if isinstance(t, dict) and t.get("content"):
-            chunks.append(t["content"])
-        q = att.get("query") or {}
-        if q:
+    """Genie returns its natural-language answer in message.content (with markdown);
+    attachments carry the SQL + raw data. For the chat surface we show only the
+    polished answer — the SQL/rows are debug-grade for the demo."""
+    # Primary: the polished narrative answer
+    content = (message.get("content") or "").strip()
+
+    # Fallback: if content is empty, paraphrase from the query description
+    if not content:
+        for att in message.get("attachments", []) or []:
+            t = att.get("text") or {}
+            if isinstance(t, dict) and t.get("content"):
+                content = t["content"]
+                break
+            q = att.get("query") or {}
             desc = q.get("description") or ""
             if desc:
-                chunks.append(desc)
-            # Try to fetch the data and render a compact table preview
-            attachment_id = att.get("attachment_id")
-            if attachment_id:
-                result = fetch_query_result(conversation_id, message_id, attachment_id)
-                rows = (
-                    result.get("statement_response", {})
-                    .get("result", {})
-                    .get("data_array")
-                ) or result.get("data_array")
-                schema_cols = (
-                    result.get("statement_response", {})
-                    .get("manifest", {})
-                    .get("schema", {})
-                    .get("columns", [])
-                )
-                if rows:
-                    headers = [c.get("name", "?") for c in schema_cols] if schema_cols else []
-                    preview = []
-                    if headers:
-                        preview.append(" · ".join(headers))
-                    for row in rows[:5]:
-                        preview.append(" · ".join(str(v) for v in row))
-                    if len(rows) > 5:
-                        preview.append(f"… {len(rows) - 5} more rows")
-                    chunks.append("\n".join(preview))
-    # Fallback to message.content if no attachments
-    if not chunks and message.get("content"):
-        chunks.append(message["content"])
-    return "\n\n".join(chunks).strip()
+                content = desc
+                break
+
+    return _strip_markdown(content).strip()
 
 
 @router.post("/ask", response_model=AskResponse)

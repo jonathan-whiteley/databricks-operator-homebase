@@ -1,7 +1,12 @@
 # src/lakehouse_market/deps.py
-"""Shared dependencies: warehouse SQL client, lakebase pool."""
+"""Shared dependencies: warehouse SQL client, lakebase pool.
+
+Lakebase uses short-lived OAuth tokens, not static passwords. We mint a fresh
+token per pool acquire via WorkspaceClient.database.generate_database_credential.
+"""
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from typing import Optional
 
@@ -13,9 +18,14 @@ from .config import get_settings
 
 
 @lru_cache(maxsize=1)
+def _workspace_client() -> WorkspaceClient:
+    return WorkspaceClient()
+
+
+@lru_cache(maxsize=1)
 def get_warehouse_client():
     s = get_settings()
-    w = WorkspaceClient()
+    w = _workspace_client()
     return dbsql.connect(
         server_hostname=s.databricks_host.replace("https://", "").rstrip("/"),
         http_path=f"/sql/1.0/warehouses/{s.warehouse_id}",
@@ -25,19 +35,48 @@ def get_warehouse_client():
     )
 
 
+_LAKEBASE_INSTANCE = os.getenv("LAKEBASE_INSTANCE", "lakehouse-market-app-db")
 _pool: Optional[asyncpg.Pool] = None
+
+
+async def _mint_lakebase_token() -> str:
+    """Generate a fresh OAuth token scoped to the Lakebase instance."""
+    w = _workspace_client()
+    resp = w.api_client.do(
+        "POST",
+        "/api/2.0/database/generate-database-credential",
+        body={"instance_names": [_LAKEBASE_INSTANCE]},
+    )
+    return resp["token"]
 
 
 async def get_lakebase_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
         s = get_settings()
+        host = s.lakebase_host
+        user = s.lakebase_user
+        # If env auth didn't fill the static password slot (Lakebase doesn't
+        # support static passwords), mint a fresh OAuth token instead.
+        password = s.lakebase_password or await _mint_lakebase_token()
         _pool = await asyncpg.create_pool(
-            host=s.lakebase_host,
+            host=host,
             database=s.lakebase_db,
-            user=s.lakebase_user,
-            password=s.lakebase_password,
+            user=user,
+            password=password,
+            ssl="require",
             min_size=1,
             max_size=4,
         )
     return _pool
+
+
+async def reset_lakebase_pool() -> None:
+    """Drop the pool — call when token expires (1h) so the next acquire reconnects."""
+    global _pool
+    if _pool is not None:
+        try:
+            await _pool.close()
+        except Exception:
+            pass
+        _pool = None
