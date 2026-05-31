@@ -12,11 +12,8 @@ resources:
           sql_warehouse:
             id: ${var.warehouse_id}
             permission: CAN_USE
-        # NOTE: Lakebase database binding is added after the Lakebase instance
-        # is up + the labor model is trained. Uncomment after `make run-init`
-        # completes and re-deploy. See README "First-time deploy" for details.
-        # - name: homebase-db
-        #   database:
-        #     instance_name: ${var.lakebase_instance}
-        #     database_name: homebase
-        #     permission: CAN_CONNECT_AND_CREATE
+        - name: homebase-db
+          database:
+            instance_name: ${var.lakebase_instance}
+            database_name: databricks_postgres
+            permission: CAN_CONNECT_AND_CREATE
