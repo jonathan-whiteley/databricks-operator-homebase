@@ -25,6 +25,21 @@ const COST_PER_HEAD: Record<string, number> = {
 
 const DEFAULT_COST_PER_HEAD = 80;
 
+// Synthetic headcount formula matching the ElasticNet model's training label
+// (notebooks/02_train_labor_model.py). Used to show a sensible default crew
+// breakdown before the user clicks Recompute (which calls the real endpoint).
+const DAYPART_BIAS: Record<string, number> = {
+  Breakfast: 1,
+  Lunch: 3,
+  Dinner: 2,
+  Late: 0,
+};
+
+function defaultHeadcount(forecast: number, daypart: string): number {
+  const bias = DAYPART_BIAS[daypart] ?? 1;
+  return Math.max(2, Math.round(forecast / 350 + bias));
+}
+
 const ICON_FOR: Record<string, ComponentType<{ className?: string }>> = {
   Breakfast: Sunrise,
   Lunch: Sun,
@@ -52,7 +67,10 @@ export function DayPartCard({
 }) {
   const [storeId] = useStoreId();
   const [override, setOverride] = useState<string>("");
-  const [headcount, setHeadcount] = useState<number | null>(null);
+  // Pre-populate with the default formula so the card never shows "Cashier 0".
+  // Recompute swaps in the served model's prediction.
+  const [headcount, setHeadcount] = useState<number | null>(defaultHeadcount(forecast, daypart));
+  const [isModelPrediction, setIsModelPrediction] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
   const [locked, setLocked] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,13 +80,13 @@ export function DayPartCard({
   const revenue = overrideNum != null && !isNaN(overrideNum) ? overrideNum : forecast;
   const isOverridden = overrideNum != null && !isNaN(overrideNum) && Math.round(overrideNum) !== Math.round(forecast);
 
-  // Reset lock state if the underlying forecast/date/daypart changes (e.g.
-  // the user switches stores).
+  // Reset state if the underlying forecast/date/daypart/store changes.
   useEffect(() => {
     setLocked(false);
-    setHeadcount(null);
+    setHeadcount(defaultHeadcount(forecast, daypart));
+    setIsModelPrediction(false);
     setOverride("");
-  }, [storeId, date, daypart]);
+  }, [storeId, date, daypart, forecast]);
 
   const projectedCost =
     headcount != null
@@ -84,6 +102,11 @@ export function DayPartCard({
         daypart,
       });
       setHeadcount(r.data.headcount);
+      setIsModelPrediction(true);
+    } catch {
+      // Serving endpoint may be cold or unavailable — fall back to the formula.
+      setHeadcount(defaultHeadcount(revenue, daypart));
+      setIsModelPrediction(false);
     } finally {
       setRecomputing(false);
     }
@@ -170,14 +193,20 @@ export function DayPartCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <RoleChip label="Cashier" count={crew.cashier} dim={headcount == null} />
-        <RoleChip label="Cook" count={crew.cook} dim={headcount == null} />
-        {crew.runner > 0 && <RoleChip label="Runner" count={crew.runner} dim={headcount == null} />}
-        {headcount != null && (
-          <span className="ml-auto font-mono text-[11px] text-[color:var(--color-ink-soft)]">
-            {headcount} crew
-          </span>
-        )}
+        <RoleChip label="Cashier" count={crew.cashier} dim={false} />
+        <RoleChip label="Cook" count={crew.cook} dim={false} />
+        {crew.runner > 0 && <RoleChip label="Runner" count={crew.runner} dim={false} />}
+        <span
+          className={cn(
+            "ml-auto font-mono text-[11px]",
+            isModelPrediction
+              ? "text-[color:var(--color-info)]"
+              : "text-[color:var(--color-ink-soft)]",
+          )}
+          title={isModelPrediction ? "Recommended by lhm-labor-recommender" : "Default formula — click Recompute for the model's call"}
+        >
+          {headcount} crew{isModelPrediction ? " · AI" : ""}
+        </span>
       </div>
 
       <div className="mt-auto flex items-center gap-1.5">
