@@ -69,7 +69,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           display: "flex",
           flexDirection: "column",
           gap: 10,
-          zIndex: 200,
+          // Above Leaflet (overlay panes go to ~700, popups ~700+) and dialogs.
+          zIndex: 9999,
           pointerEvents: "none",
         }}
       >
