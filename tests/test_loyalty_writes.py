@@ -63,6 +63,6 @@ def test_post_win_back(patch_pool, monkeypatch):
     captured = patch_pool.conn.executemany_args
     assert captured is not None
     sql, rows = captured
-    assert "INSERT INTO app_offer_pushes" in sql
+    assert "INSERT INTO lhm_app.app_offer_pushes" in sql
     assert len(rows) == 3
     assert rows[0] == (1, 11, 7, "member", None)
