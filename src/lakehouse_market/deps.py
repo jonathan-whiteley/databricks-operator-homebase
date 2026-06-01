@@ -51,10 +51,13 @@ async def _mint_lakebase_token() -> str:
     import httpx
 
     w = _workspace_client()
-    # w.config.authenticate() returns auth headers including the bearer token.
+    # w.config.host is reliable inside Databricks Apps (DATABRICKS_HOST env may
+    # be empty); w.config.authenticate() returns the bearer auth headers.
     headers = w.config.authenticate()
-    s = get_settings()
-    url = f"{s.databricks_host.rstrip('/')}/api/2.0/database/generate-database-credential"
+    host = (w.config.host or get_settings().databricks_host or "").rstrip("/")
+    if not host:
+        raise RuntimeError("Databricks host not resolvable from WorkspaceClient or env")
+    url = f"{host}/api/2.0/database/generate-database-credential"
     async with httpx.AsyncClient(timeout=15.0) as client:
         r = await client.post(
             url,
