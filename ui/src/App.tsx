@@ -15,11 +15,11 @@ import { GeniePanelProvider } from "./state/genie-panel";
 // stays on disk through Phase 9 but is no longer mounted — MembersView
 // is the new `/members` home.
 const TodayView = lazy(() => import("./pages/TodayView"));
-const LaborPage = lazy(() => import("./pages/LaborPage"));
-const MembersView = lazy(() => import("./pages/MembersView"));
-const SupplyPage = lazy(() => import("./pages/SupplyPage"));
-const FeedbackView = lazy(() => import("./pages/FeedbackView"));
+const LaborView = lazy(() => import("./pages/LaborView"));
+const InventoryView = lazy(() => import("./pages/InventoryView"));
 const EquipmentView = lazy(() => import("./pages/EquipmentView"));
+const MembersView = lazy(() => import("./pages/MembersView"));
+const FeedbackView = lazy(() => import("./pages/FeedbackView"));
 
 export function App() {
   return (
@@ -61,8 +61,8 @@ export function App() {
                   {/* New canonical paths */}
                   <Route path="/" element={<Navigate to="/today" replace />} />
                   <Route path="/today" element={<TodayView />} />
-                  <Route path="/labor" element={<LaborPage />} />
-                  <Route path="/inventory" element={<SupplyPage />} />
+                  <Route path="/labor" element={<LaborView />} />
+                  <Route path="/inventory" element={<InventoryView />} />
                   <Route path="/equipment" element={<EquipmentView />} />
                   <Route path="/members" element={<MembersView />} />
                   <Route path="/feedback" element={<FeedbackView />} />
