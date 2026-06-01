@@ -15,7 +15,7 @@ const LaborPage = lazy(() => import("./pages/LaborPage"));
 const LoyaltyPage = lazy(() => import("./pages/LoyaltyPage"));
 const SupplyPage = lazy(() => import("./pages/SupplyPage"));
 const SentimentPage = lazy(() => import("./pages/SentimentPage"));
-const MaintenancePage = lazy(() => import("./pages/MaintenancePage"));
+const EquipmentView = lazy(() => import("./pages/EquipmentView"));
 
 export function App() {
   return (
@@ -59,7 +59,7 @@ export function App() {
                   <Route path="/today" element={<HubPage />} />
                   <Route path="/labor" element={<LaborPage />} />
                   <Route path="/inventory" element={<SupplyPage />} />
-                  <Route path="/equipment" element={<MaintenancePage />} />
+                  <Route path="/equipment" element={<EquipmentView />} />
                   <Route path="/members" element={<LoyaltyPage />} />
                   <Route path="/feedback" element={<SentimentPage />} />
 
