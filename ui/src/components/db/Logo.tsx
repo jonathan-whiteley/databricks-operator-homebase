@@ -1,8 +1,7 @@
 // ui/src/components/db/Logo.tsx
 //
-// Lava square with house icon + "Lakehouse Market" wordmark. Used in the
-// Sidebar header.
-import Icon from "./Icon";
+// Databricks symbol (light) + "Lakehouse Market" wordmark. The SVG is
+// served from /databricks-symbol-light.svg (ui/public/).
 
 type LogoProps = {
   size?: number;
@@ -10,21 +9,17 @@ type LogoProps = {
 
 export default function Logo({ size = 26 }: LogoProps) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-      <div
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <img
+        src="/databricks-symbol-light.svg"
+        alt="Databricks"
         style={{
-          width: size,
           height: size,
-          borderRadius: 7,
-          background: "var(--db-lava-600)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          width: "auto",
+          display: "block",
           flexShrink: 0,
         }}
-      >
-        <Icon name="today" size={size * 0.6} color="#fff" stroke={2.4} />
-      </div>
+      />
       <span
         style={{
           fontSize: 16,
