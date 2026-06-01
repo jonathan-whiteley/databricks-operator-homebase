@@ -51,22 +51,22 @@ export default function HubPage() {
   // ---- Action queue items ----
   const items: { tab: string; tabLabel: string; title: string; subtitle: string; to: string }[] = [];
   reorders.data?.slice(0, 2).forEach((r) => items.push({
-    tab: "supply", tabLabel: "03 Supply",
+    tab: "inventory", tabLabel: "03 Inventory",
     title: `Release PO: ${r.sku_name}`,
     subtitle: `${r.days_of_cover.toFixed(1)} days of cover left`,
-    to: "/supply",
+    to: "/inventory",
   }));
   risks.data?.slice(0, 2).forEach((r) => items.push({
-    tab: "maintenance", tabLabel: "05 Maint",
+    tab: "equipment", tabLabel: "05 Equipment",
     title: `Schedule tech: ${r.category}`,
     subtitle: `Predicted failure in ${r.rul_days} days`,
-    to: "/maintenance",
+    to: "/equipment",
   }));
   inbox.data?.slice(0, 2).forEach((rv) => items.push({
-    tab: "sentiment", tabLabel: "04 Sentiment",
+    tab: "feedback", tabLabel: "04 Feedback",
     title: `New ${rv.sentiment} review`,
     subtitle: rv.snippet,
-    to: "/sentiment",
+    to: "/feedback",
   }));
 
   // ---- KPI computations ----
@@ -80,10 +80,10 @@ export default function HubPage() {
   // ---- Badge counts on diagram nodes ----
   const badges = {
     labor: tasksToLock,
-    loyalty: loyalty.data?.at_risk_count ?? 0,
-    supply: reorders.data?.length ?? 0,
-    sentiment: inbox.data?.length ?? 0,
-    maintenance: risks.data?.length ?? 0,
+    members: loyalty.data?.at_risk_count ?? 0,
+    inventory: reorders.data?.length ?? 0,
+    feedback: inbox.data?.length ?? 0,
+    equipment: risks.data?.length ?? 0,
   };
 
   return (

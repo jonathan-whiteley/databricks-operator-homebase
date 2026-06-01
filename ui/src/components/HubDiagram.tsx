@@ -13,10 +13,10 @@ type NodeDef = {
 
 const NODES: NodeDef[] = [
   { id: "labor",       label: "01 Labor",       short: "Labor",       to: "/labor",       Icon: Users },
-  { id: "loyalty",     label: "02 Loyalty",     short: "Loyalty",     to: "/loyalty",     Icon: Heart },
-  { id: "supply",      label: "03 Supply",      short: "Supply",      to: "/supply",      Icon: Boxes },
-  { id: "sentiment",   label: "04 Sentiment",   short: "Sentiment",   to: "/sentiment",   Icon: MessageCircle },
-  { id: "maintenance", label: "05 Maintenance", short: "Maint.",      to: "/maintenance", Icon: Wrench },
+  { id: "members",     label: "02 Loyalty",     short: "Loyalty",     to: "/members",     Icon: Heart },
+  { id: "inventory",   label: "03 Inventory",   short: "Inventory",   to: "/inventory",   Icon: Boxes },
+  { id: "feedback",    label: "04 Feedback",    short: "Feedback",    to: "/feedback",    Icon: MessageCircle },
+  { id: "equipment",   label: "05 Equipment",   short: "Equip.",      to: "/equipment",   Icon: Wrench },
 ];
 
 export function HubDiagram({ badges }: { badges?: Record<string, number> }) {
