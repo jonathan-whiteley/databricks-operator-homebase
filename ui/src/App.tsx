@@ -10,11 +10,13 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { GeniePanel, Sidebar, ToastProvider, TopBar } from "./components/db";
 import { GeniePanelProvider } from "./state/genie-panel";
 
-const HubPage = lazy(() => import("./pages/HubPage"));
+// HubPage is preserved on disk during the Phase 5 transition but no longer
+// mounted on `/today` — TodayView is the new home.
+const TodayView = lazy(() => import("./pages/TodayView"));
 const LaborPage = lazy(() => import("./pages/LaborPage"));
 const LoyaltyPage = lazy(() => import("./pages/LoyaltyPage"));
 const SupplyPage = lazy(() => import("./pages/SupplyPage"));
-const SentimentPage = lazy(() => import("./pages/SentimentPage"));
+const FeedbackView = lazy(() => import("./pages/FeedbackView"));
 const EquipmentView = lazy(() => import("./pages/EquipmentView"));
 
 export function App() {
@@ -56,12 +58,12 @@ export function App() {
                 <Routes>
                   {/* New canonical paths */}
                   <Route path="/" element={<Navigate to="/today" replace />} />
-                  <Route path="/today" element={<HubPage />} />
+                  <Route path="/today" element={<TodayView />} />
                   <Route path="/labor" element={<LaborPage />} />
                   <Route path="/inventory" element={<SupplyPage />} />
                   <Route path="/equipment" element={<EquipmentView />} />
                   <Route path="/members" element={<LoyaltyPage />} />
-                  <Route path="/feedback" element={<SentimentPage />} />
+                  <Route path="/feedback" element={<FeedbackView />} />
 
                   {/* Legacy redirects */}
                   <Route path="/loyalty" element={<Navigate to="/members" replace />} />
