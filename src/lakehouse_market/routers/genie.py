@@ -37,26 +37,54 @@ def _strip_markdown(text: str) -> str:
 
 
 def _extract_answer(message: dict, conversation_id: str, message_id: str) -> str:
-    """Genie returns its natural-language answer in message.content (with markdown);
-    attachments carry the SQL + raw data. For the chat surface we show only the
-    polished answer — the SQL/rows are debug-grade for the demo."""
-    # Primary: the polished narrative answer
-    content = (message.get("content") or "").strip()
-
-    # Fallback: if content is empty, paraphrase from the query description
-    if not content:
-        for att in message.get("attachments", []) or []:
-            t = att.get("text") or {}
-            if isinstance(t, dict) and t.get("content"):
-                content = t["content"]
-                break
-            q = att.get("query") or {}
+    """Genie's reply lives in attachments — `message.content` is the USER prompt
+    echoed back, not Genie's answer. Walk attachments and assemble text from any
+    text attachments, the query.description, and a compact preview of the data."""
+    chunks: list[str] = []
+    for att in message.get("attachments") or []:
+        t = att.get("text") or {}
+        if isinstance(t, dict) and t.get("content"):
+            chunks.append(t["content"])
+        q = att.get("query") or {}
+        if q:
             desc = q.get("description") or ""
             if desc:
-                content = desc
-                break
+                chunks.append(desc)
+            attachment_id = att.get("attachment_id")
+            if attachment_id:
+                result = fetch_query_result(conversation_id, message_id, attachment_id)
+                sr = result.get("statement_response") or {}
+                rows = (sr.get("result") or {}).get("data_array") or result.get("data_array")
+                cols = (sr.get("manifest") or {}).get("schema", {}).get("columns") or []
+                if rows:
+                    headers = [c.get("name", "?") for c in cols]
+                    lines: list[str] = []
+                    if headers:
+                        lines.append(" · ".join(headers))
+                    for row in rows[:5]:
+                        lines.append(" · ".join(_fmt(v) for v in row))
+                    if len(rows) > 5:
+                        lines.append(f"… {len(rows) - 5} more rows")
+                    chunks.append("\n".join(lines))
+    # Last-resort fallback: only use message.content if it doesn't look like our prompt
+    if not chunks:
+        content = (message.get("content") or "").strip()
+        if content and not content.startswith("Context: tab="):
+            chunks.append(content)
+    return _strip_markdown("\n\n".join(chunks)).strip()
 
-    return _strip_markdown(content).strip()
+
+def _fmt(v) -> str:
+    """Compact value renderer for the data preview."""
+    if v is None:
+        return "—"
+    try:
+        f = float(v)
+        if f != int(f):
+            return f"{f:.2f}"
+        return str(int(f))
+    except (TypeError, ValueError):
+        return str(v)
 
 
 @router.post("/ask", response_model=AskResponse)
@@ -77,7 +105,9 @@ def ask(req: AskRequest):
     conv = started["conversation_id"]
     msg_id = started["message_id"]
 
-    # start-conversation often returns COMPLETED synchronously; only poll if not.
+    # Always poll: start-conversation typically returns before Genie has finished
+    # composing its reply. Use the started envelope only if it's already terminal
+    # AND already has attachments (rare).
     if started.get("status") in {"COMPLETED", "FAILED"} and started.get("attachments"):
         message = started
     else:
@@ -85,5 +115,5 @@ def ask(req: AskRequest):
 
     text = _extract_answer(message, conv, msg_id)
     if not text:
-        text = f"(Genie returned status {message.get('status', 'UNKNOWN')} with no content)"
+        text = f"(Genie returned status {message.get('status', 'UNKNOWN')} with no answer)"
     return {"text": text, "conversation_id": conv, "message_id": msg_id}

@@ -19,17 +19,22 @@ def _ws() -> WorkspaceClient:
 
 
 def create_conversation(question: str) -> dict:
-    """Start a Genie conversation and wait for the first message to terminate."""
+    """Start a Genie conversation and return the first message envelope.
+
+    The API returns a wrapper {conversation, conversation_id, message, message_id}
+    where the actual message envelope (content/status/attachments/id) lives under
+    `message`. The user's prompt text is what ends up in message.content; Genie's
+    answer arrives later as either text or query attachments — poll for it."""
     s = get_settings()
     url = f"/api/2.0/genie/spaces/{s.genie_space_id}/start-conversation"
     resp = _ws().api_client.do("POST", url, body={"content": question})
-    # start-conversation returns the message envelope flat:
-    # {conversation_id, id (message id), status, attachments, content, ...}
+    msg = resp.get("message") or {}
     return {
-        "conversation_id": resp.get("conversation_id", ""),
-        "message_id": resp.get("id") or resp.get("message_id", ""),
-        "status": resp.get("status", "EXECUTING"),
-        "attachments": resp.get("attachments", []),
+        "conversation_id": resp.get("conversation_id") or msg.get("conversation_id", ""),
+        "message_id": resp.get("message_id") or msg.get("id", ""),
+        "status": msg.get("status", "EXECUTING"),
+        "attachments": msg.get("attachments") or [],
+        "content": msg.get("content", ""),
     }
 
 
