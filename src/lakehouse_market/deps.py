@@ -42,35 +42,19 @@ _pool: Optional[asyncpg.Pool] = None
 async def _mint_lakebase_token() -> str:
     """Generate a fresh OAuth token scoped to the Lakebase instance.
 
-    Both `w.api_client.do("POST", "/api/2.0/database/generate-database-credential")`
-    and the SDK's high-level `w.database.generate_database_credential()` return
-    404 inside Databricks Apps (the path resolution differs from the CLI). Hit
-    the REST endpoint directly with httpx + the SP's bearer token, which is
-    what the CLI does under the hood.
+    Use the SDK's high-level call — it generates a request_id, sets the
+    X-Databricks-Org-Id header, and resolves the path. Raw httpx attempts
+    failed with 400 because they were missing those bits.
     """
-    import httpx
-
     w = _workspace_client()
-    # w.config.host is reliable inside Databricks Apps (DATABRICKS_HOST env may
-    # be empty); w.config.authenticate() returns the bearer auth headers.
-    headers = w.config.authenticate()
-    host = (w.config.host or get_settings().databricks_host or "").rstrip("/")
-    if not host:
-        raise RuntimeError("Databricks host not resolvable from WorkspaceClient or env")
-    # NOTE: actual REST path (verified via `databricks --debug`) is /credentials,
-    # not /generate-database-credential which the older SDK error implied.
-    url = f"{host}/api/2.0/database/credentials"
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.post(
-            url,
-            headers=headers,
-            json={"instance_names": [_LAKEBASE_INSTANCE]},
-        )
-        r.raise_for_status()
-        data = r.json()
-    token = data.get("token")
+    resp = w.database.generate_database_credential(
+        instance_names=[_LAKEBASE_INSTANCE],
+    )
+    token = getattr(resp, "token", None)
+    if not token and isinstance(resp, dict):
+        token = resp.get("token")
     if not token:
-        raise RuntimeError(f"generate-database-credential returned no token: {data!r}")
+        raise RuntimeError(f"generate_database_credential returned no token: {resp!r}")
     return token
 
 
