@@ -14,6 +14,17 @@ import {
 } from "react";
 
 import { api } from "@/lib/api";
+import { useStoreId } from "@/state/store";
+import { useLocation } from "react-router-dom";
+
+const TAB_ID_FOR_PATH: Record<string, string> = {
+  "/today": "today",
+  "/labor": "labor",
+  "/inventory": "supply",
+  "/equipment": "maintenance",
+  "/members": "loyalty",
+  "/feedback": "sentiment",
+};
 
 export type GenieRole = "user" | "assistant";
 
@@ -48,6 +59,8 @@ export function GeniePanelProvider({ children }: { children: ReactNode }) {
   const [conversation, setConversation] = useState<GenieMsg[]>([]);
   const [busy, setBusy] = useState(false);
   const idRef = useRef(0);
+  const [storeId] = useStoreId();
+  const location = useLocation();
 
   const nextId = useCallback(() => {
     idRef.current += 1;
@@ -72,7 +85,12 @@ export function GeniePanelProvider({ children }: { children: ReactNode }) {
       setConversation((prev) => [...prev, userMsg, placeholder]);
       setBusy(true);
       try {
-        const { data } = await api.post<AskResponse>("/genie/ask", { question: trimmed });
+        const tabId = TAB_ID_FOR_PATH[location.pathname] ?? "today";
+        const { data } = await api.post<AskResponse>("/genie/ask", {
+          tab_id: tabId,
+          store_id: storeId,
+          question: trimmed,
+        });
         const answer = data.answer ?? data.text ?? "";
         setConversation((prev) =>
           prev.map((m) =>
@@ -94,7 +112,7 @@ export function GeniePanelProvider({ children }: { children: ReactNode }) {
         setBusy(false);
       }
     },
-    [nextId],
+    [nextId, storeId, location.pathname],
   );
 
   const value = useMemo<GeniePanelApi>(
