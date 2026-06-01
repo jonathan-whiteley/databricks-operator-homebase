@@ -1,13 +1,14 @@
 // ui/src/pages/TodayView.tsx
 //
-// Phase 5 Today view: Genie-first home that mirrors the design's
-// `home.jsx` spotlight variant. Renders a 5-card KPI strip, a navy hero
-// card with the daily brief + action chips + Ask bar, and a 5-card
-// "Jump into a module" rail. Data comes from /api/today/brief, which the
-// Sidebar also consumes for nav badges.
+// Phase 5 Today view: Genie-first home that mirrors the design template
+// `/tmp/claude_design/lakehouse-market-homebase-app/project/app/home.jsx`
+// faithfully. Renders a 5-card KPI strip, a navy hero card with the daily
+// brief + action chips + Ask bar, and a 5-card "Jump into a module" rail.
+// Data comes from /api/today/brief, which the Sidebar also consumes for
+// nav badges.
 import { useNavigate } from "react-router-dom";
 
-import { Card, Delta, Icon, LEVEL, PATHS, Spark } from "@/components/db";
+import { Btn, Card, Delta, Icon, LEVEL, PATHS, Spark } from "@/components/db";
 import type { IconName, PillLevel } from "@/components/db";
 import { useApi } from "@/lib/api";
 import { useGeniePanel } from "@/state/genie-panel";
@@ -22,13 +23,9 @@ type KPI = {
   color: string;
 };
 
-type Outstanding = {
-  labor: number;
-  inventory: number;
-  equipment: number;
-  members: number;
-  feedback: number;
-};
+type Module = "labor" | "inventory" | "equipment" | "members" | "feedback";
+
+type Outstanding = Record<Module, number>;
 
 type FirstAction = {
   module: string;
@@ -44,6 +41,7 @@ export type TodayBrief = {
   first_action: FirstAction;
 };
 
+// Match the design's KPI color tokens (home.jsx:27-33).
 const KPI_COLORS: Record<string, string> = {
   lava: "var(--db-lava-600)",
   blue: "var(--db-blue-600)",
@@ -52,8 +50,7 @@ const KPI_COLORS: Record<string, string> = {
   navy: "var(--db-navy-600)",
 };
 
-type Module = "labor" | "inventory" | "equipment" | "members" | "feedback";
-
+// Action chip labels — pulled verbatim from ACTION_LABELS in home.jsx:3-9.
 const CHIP_LABEL: Record<Module, (n: number) => string | null> = {
   equipment: (n) => (n ? "Schedule cooler service" : null),
   labor: (n) => (n ? `Approve ${n} timecard${n > 1 ? "s" : ""}` : null),
@@ -62,6 +59,8 @@ const CHIP_LABEL: Record<Module, (n: number) => string | null> = {
   feedback: (n) => (n ? `Reply to ${n} review${n > 1 ? "s" : ""}` : null),
 };
 
+// CHIP_ORDER mirrors home.jsx:10 — equipment first because the cooler
+// drives the headline prose, then the rest in nav order.
 const CHIP_ORDER: Module[] = ["equipment", "labor", "inventory", "members", "feedback"];
 
 type ModuleEntry = {
@@ -72,6 +71,8 @@ type ModuleEntry = {
   level: PillLevel;
 };
 
+// Module rail — mirrors MODS in home.jsx:20-26. Levels match the design's
+// per-module tint choices in home.jsx:105.
 const MODULES: ModuleEntry[] = [
   {
     id: "labor",
@@ -118,6 +119,7 @@ const MODULE_ROUTE: Record<Module, string> = {
   feedback: "/feedback",
 };
 
+// home.jsx pulls `store.manager` from app context; the demo persona is Maya.
 const STORE_MANAGER = "Maya";
 
 function formatAnchorDate(): string {
@@ -136,10 +138,21 @@ function pctStr(p: number): string {
   return `${(p * 100 >= 0 ? "+" : "") + (p * 100).toFixed(1)}%`;
 }
 
+function fmtMoney(n: number): string {
+  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+}
+
 function TodaySkeleton() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
+    <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(5,1fr)",
+          gap: 12,
+          marginBottom: 22,
+        }}
+      >
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
@@ -158,6 +171,7 @@ function TodaySkeleton() {
           borderRadius: 18,
           background: "var(--db-navy-900)",
           opacity: 0.55,
+          marginBottom: 28,
         }}
       />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
@@ -196,9 +210,19 @@ export default function TodayView() {
   const dateLabel = formatAnchorDate();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+    // home.jsx wraps everything in a 1120px-centered column. The outer App
+    // shell already supplies the oat-light background and 28px 32px padding;
+    // we just center the column here.
+    <div style={{ maxWidth: 1120, margin: "0 auto" }}>
       {/* ===== KPI strip ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(5,1fr)",
+          gap: 12,
+          marginBottom: 22,
+        }}
+      >
         {kpis.map((k) => {
           const color = KPI_COLORS[k.color] ?? "var(--db-lava-600)";
           return (
@@ -249,7 +273,10 @@ export default function TodayView() {
         })}
       </div>
 
-      {/* ===== Genie hero ===== */}
+      {/* ===== AI hero (Genie · your daily brief) =====
+          Structure traces home.jsx:53-95 line-for-line: navy-900 bg, 18px
+          radius, decorative spark SVG positioned top-right, eyebrow row,
+          spotlight prose, action chips, ask bar. */}
       <div
         style={{
           background: "var(--db-navy-900)",
@@ -259,7 +286,6 @@ export default function TodayView() {
           overflow: "hidden",
         }}
       >
-        {/* Decorative spark SVG; matches the design's hero motif */}
         <svg
           viewBox="0 0 24 24"
           width="340"
@@ -271,18 +297,8 @@ export default function TodayView() {
         >
           <path d={PATHS.spark} />
         </svg>
-        {/* Lava accent stripe down the left edge */}
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 24,
-            bottom: 24,
-            width: 3,
-            background: "var(--db-lava-600)",
-            borderRadius: 3,
-          }}
-        />
+
+        {/* Eyebrow row: lava-tile + "Genie · your daily brief" + monospace date */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
           <div
             style={{
@@ -319,6 +335,10 @@ export default function TodayView() {
             {dateLabel}
           </span>
         </div>
+
+        {/* Spotlight prose — wired to the live brief. Mirrors the spotlight
+            variant in home.jsx:69 with bold revenue, colored delta, and a
+            lava-tinted first-action callout from first_action.label. */}
         <p
           style={{
             fontSize: 22.5,
@@ -334,23 +354,22 @@ export default function TodayView() {
           {totalOpen > 0 ? (
             <>
               Morning, {STORE_MANAGER}. Yesterday closed at{" "}
-              <strong style={{ fontWeight: 600 }}>
-                ${yesterday_revenue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-              </strong>
-              ,{" "}
-              <span style={{ color: yesterdayUp ? "var(--db-green-400)" : "var(--db-lava-400)", fontWeight: 600 }}>
+              <strong style={{ fontWeight: 600 }}>{fmtMoney(yesterday_revenue)}</strong>,{" "}
+              <span
+                style={{
+                  color: yesterdayUp ? "var(--db-green-400)" : "var(--db-lava-400)",
+                  fontWeight: 600,
+                }}
+              >
                 {yesterdayUp ? "up" : "down"} {pctStr(Math.abs(data.yesterday_delta_pct))}
               </span>
               . Today's forecast is{" "}
-              <strong style={{ fontWeight: 600 }}>
-                ${today_forecast.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-              </strong>
-              . The one to handle first:{" "}
+              <strong style={{ fontWeight: 600 }}>{fmtMoney(today_forecast)}</strong>. The
+              one to handle first:{" "}
               <span style={{ color: "var(--db-lava-400)", fontWeight: 600 }}>
                 {first_action.label}
               </span>
-              . You've got{" "}
-              <strong style={{ fontWeight: 600 }}>{totalOpen}</strong>{" "}
+              . You've got <strong style={{ fontWeight: 600 }}>{totalOpen}</strong>{" "}
               {totalOpen === 1 ? "thing" : "things"} waiting below.
             </>
           ) : (
@@ -359,16 +378,15 @@ export default function TodayView() {
               <span style={{ color: "var(--db-green-400)", fontWeight: 600 }}>
                 you're all caught up
               </span>
-              . Forecast says{" "}
-              <strong style={{ fontWeight: 600 }}>
-                ${today_forecast.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-              </strong>{" "}
-              today. Go run the floor.
+              . Forecast still says{" "}
+              <strong style={{ fontWeight: 600 }}>{fmtMoney(today_forecast)}</strong> today.
+              Go run the floor.
             </>
           )}
         </p>
 
-        {/* Action chips for each open module */}
+        {/* Action chips row (home.jsx:78-88). Equipment chip carries the lava
+            dot prefix per design. Each chip routes to its module. */}
         {totalOpen > 0 && (
           <div
             style={{
@@ -415,10 +433,18 @@ export default function TodayView() {
           </div>
         )}
 
-        {/* Ask bar — opens the global Genie slide-over */}
-        <button
-          type="button"
+        {/* Ask bar — opens the global Genie slide-over. Mirrors home.jsx:90-94
+            with a primary Btn carrying the arrow icon. */}
+        <div
           onClick={openPanel}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openPanel();
+            }
+          }}
           style={{
             marginTop: 22,
             background: "var(--db-navy-800)",
@@ -430,127 +456,114 @@ export default function TodayView() {
             gap: 10,
             position: "relative",
             maxWidth: 760,
-            width: "100%",
             cursor: "pointer",
-            textAlign: "left",
           }}
         >
           <Icon name="spark" size={16} color="var(--db-navy-400)" />
           <span style={{ flex: 1, fontSize: 14, color: "var(--db-navy-400)" }}>
             Ask anything about your store…
           </span>
-          <span
-            style={{
-              background: "var(--db-lava-600)",
-              padding: "8px 11px",
-              borderRadius: 8,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
+          <Btn variant="primary" size="sm" onClick={openPanel} style={{ padding: "8px 11px" }}>
             <Icon name="arrow" size={15} color="#fff" />
-          </span>
-        </button>
+          </Btn>
+        </div>
       </div>
 
-      {/* ===== Module rail ===== */}
-      <div>
+      {/* ===== Module rail (home.jsx:97-119) ===== */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          marginTop: 28,
+          marginBottom: 14,
+        }}
+      >
         <h2
           style={{
             fontSize: 16,
             fontWeight: 500,
             color: "var(--db-navy-800)",
-            margin: "6px 0 14px",
+            margin: 0,
           }}
         >
           Jump into a module
         </h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
-          {MODULES.map((m) => {
-            const n = outstanding[m.id];
-            const done = !n;
-            const lv = done ? LEVEL.ok : LEVEL[m.level];
-            return (
-              <Card
-                key={m.id}
-                hover
-                pad={16}
-                onClick={() => navigate(MODULE_ROUTE[m.id])}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
+        {MODULES.map((m) => {
+          const n = outstanding[m.id];
+          const done = !n;
+          const lv = done ? LEVEL.ok : LEVEL[m.level];
+          return (
+            <Card
+              key={m.id}
+              hover
+              pad={16}
+              onClick={() => navigate(MODULE_ROUTE[m.id])}
+              style={{
+                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div
                 style={{
-                  cursor: "pointer",
                   display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
+                  alignItems: "center",
+                  justifyContent: "space-between",
                 }}
               >
                 <div
                   style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 9,
+                    background: lv.bg,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
+                    justifyContent: "center",
                   }}
                 >
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 9,
-                      background: lv.bg,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Icon name={m.icon} size={18} color={lv.fg} />
-                  </div>
-                  {done ? (
-                    <Icon name="check" size={16} color="var(--db-green-600)" stroke={2.2} />
-                  ) : (
-                    <span
-                      style={{
-                        minWidth: 22,
-                        height: 22,
-                        padding: "0 7px",
-                        borderRadius: 999,
-                        background: lv.dot,
-                        color: "#fff",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {n > 99 ? "99+" : n}
-                    </span>
-                  )}
+                  <Icon name={m.icon} size={18} color={lv.fg} />
                 </div>
-                <div>
-                  <div
+                {done ? (
+                  <Icon name="check" size={16} color="var(--db-green-600)" stroke={2.2} />
+                ) : (
+                  <span
                     style={{
-                      fontSize: 13.5,
-                      fontWeight: 500,
-                      color: "var(--db-navy-800)",
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background: lv.dot,
                     }}
-                  >
-                    {m.name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--db-gray-text)",
-                      marginTop: 3,
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {m.signal(n)}
-                  </div>
+                  />
+                )}
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 13.5,
+                    fontWeight: 500,
+                    color: "var(--db-navy-800)",
+                  }}
+                >
+                  {m.name}
                 </div>
-              </Card>
-            );
-          })}
-        </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--db-gray-text)",
+                    marginTop: 3,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {m.signal(n)}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
