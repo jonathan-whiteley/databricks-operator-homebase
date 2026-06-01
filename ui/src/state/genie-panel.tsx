@@ -1,0 +1,114 @@
+// ui/src/state/genie-panel.tsx
+//
+// React context for the global Genie slide-over. Tracks the open/closed
+// state, a single in-memory conversation, and exposes `ask(text)` which
+// POSTs to /api/genie/ask. View-specific prompt chips land in Phase 11.
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+
+import { api } from "@/lib/api";
+
+export type GenieRole = "user" | "assistant";
+
+export type GenieMsg = {
+  id: number;
+  role: GenieRole;
+  text: string;
+  loading?: boolean;
+  source?: string;
+};
+
+type GeniePanelApi = {
+  open: boolean;
+  openPanel: () => void;
+  closePanel: () => void;
+  togglePanel: () => void;
+  conversation: GenieMsg[];
+  ask: (text: string) => Promise<void>;
+  busy: boolean;
+};
+
+const Ctx = createContext<GeniePanelApi | null>(null);
+
+type AskResponse = {
+  answer?: string;
+  text?: string;
+  source?: string;
+};
+
+export function GeniePanelProvider({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [conversation, setConversation] = useState<GenieMsg[]>([]);
+  const [busy, setBusy] = useState(false);
+  const idRef = useRef(0);
+
+  const nextId = useCallback(() => {
+    idRef.current += 1;
+    return idRef.current;
+  }, []);
+
+  const openPanel = useCallback(() => setOpen(true), []);
+  const closePanel = useCallback(() => setOpen(false), []);
+  const togglePanel = useCallback(() => setOpen((v) => !v), []);
+
+  const ask = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const userMsg: GenieMsg = { id: nextId(), role: "user", text: trimmed };
+      const placeholder: GenieMsg = {
+        id: nextId(),
+        role: "assistant",
+        text: "",
+        loading: true,
+      };
+      setConversation((prev) => [...prev, userMsg, placeholder]);
+      setBusy(true);
+      try {
+        const { data } = await api.post<AskResponse>("/genie/ask", { question: trimmed });
+        const answer = data.answer ?? data.text ?? "";
+        setConversation((prev) =>
+          prev.map((m) =>
+            m.id === placeholder.id
+              ? { ...m, loading: false, text: answer, source: data.source }
+              : m,
+          ),
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Request failed";
+        setConversation((prev) =>
+          prev.map((m) =>
+            m.id === placeholder.id
+              ? { ...m, loading: false, text: `Sorry — ${msg}` }
+              : m,
+          ),
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [nextId],
+  );
+
+  const value = useMemo<GeniePanelApi>(
+    () => ({ open, openPanel, closePanel, togglePanel, conversation, ask, busy }),
+    [open, openPanel, closePanel, togglePanel, conversation, ask, busy],
+  );
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function useGeniePanel(): GeniePanelApi {
+  const ctx = useContext(Ctx);
+  if (!ctx) {
+    throw new Error("useGeniePanel must be used inside <GeniePanelProvider>");
+  }
+  return ctx;
+}
