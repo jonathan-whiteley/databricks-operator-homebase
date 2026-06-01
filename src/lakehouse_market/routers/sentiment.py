@@ -70,16 +70,30 @@ def digest(store_id: int):
     if cached and now - cached[0] < 3600:
         return {"text": cached[1], "generated_at": cached[0]}
     anchor = get_settings().demo_anchor_date
+    # Widen to 14d + inclusive so the digest always has samples even when the
+    # anchor lands on the dataset's max review date.
     samples = fetch_all(
         """SELECT r.text, rs.sentiment FROM reviews r
            JOIN review_sentiment rs USING (review_id)
-           WHERE r.store_id = :store_id AND r.ts > to_date(:anchor) - INTERVAL 7 DAYS
-           LIMIT 30""",
+           WHERE r.store_id = :store_id
+             AND r.ts >= to_date(:anchor) - INTERVAL 14 DAYS
+             AND r.ts <= to_date(:anchor)
+           ORDER BY r.ts DESC
+           LIMIT 40""",
         {"store_id": store_id, "anchor": anchor},
     )
+    if not samples:
+        return {
+            "text": "No reviews in the last two weeks for this store.",
+            "generated_at": now,
+        }
     prompt = (
-        "Summarize what guests are saying about this store this week in 3 sentences:\n\n"
-        + "\n".join(f"- ({s['sentiment']}) {s['text']}" for s in samples)
+        "You are summarizing recent guest reviews for one of our store managers. "
+        "In 3 short sentences, highlight (a) what guests liked, (b) the most common complaint, "
+        "(c) one suggested action. Stay concrete; quote a phrase only if it's vivid. "
+        "Do not ask for clarification — answer from the data below.\n\n"
+        "Reviews:\n"
+        + "\n".join(f"- [{s['sentiment']}] {s['text']}" for s in samples)
     )
     text = call_fm(prompt)
     _DIGEST_CACHE[store_id] = (now, text)

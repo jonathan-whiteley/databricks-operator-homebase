@@ -42,20 +42,30 @@ _pool: Optional[asyncpg.Pool] = None
 async def _mint_lakebase_token() -> str:
     """Generate a fresh OAuth token scoped to the Lakebase instance.
 
-    Uses the high-level SDK call so the path is resolved by the SDK, not by us.
-    The raw POST /api/2.0/database/generate-database-credential path gets
-    rewritten differently across SDK versions and was failing with "No API found".
+    Both `w.api_client.do("POST", "/api/2.0/database/generate-database-credential")`
+    and the SDK's high-level `w.database.generate_database_credential()` return
+    404 inside Databricks Apps (the path resolution differs from the CLI). Hit
+    the REST endpoint directly with httpx + the SP's bearer token, which is
+    what the CLI does under the hood.
     """
+    import httpx
+
     w = _workspace_client()
-    resp = w.database.generate_database_credential(
-        instance_names=[_LAKEBASE_INSTANCE],
-    )
-    # SDK returns a response object with .token or a dict — handle both.
-    token = getattr(resp, "token", None)
-    if token is None and isinstance(resp, dict):
-        token = resp.get("token")
+    # w.config.authenticate() returns auth headers including the bearer token.
+    headers = w.config.authenticate()
+    s = get_settings()
+    url = f"{s.databricks_host.rstrip('/')}/api/2.0/database/generate-database-credential"
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.post(
+            url,
+            headers=headers,
+            json={"instance_names": [_LAKEBASE_INSTANCE]},
+        )
+        r.raise_for_status()
+        data = r.json()
+    token = data.get("token")
     if not token:
-        raise RuntimeError(f"generate_database_credential returned no token: {resp!r}")
+        raise RuntimeError(f"generate-database-credential returned no token: {data!r}")
     return token
 
 
