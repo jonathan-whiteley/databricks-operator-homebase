@@ -65,7 +65,7 @@ async def work_order(req: WorkOrder):
     pool = await get_lakebase_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO app_work_orders (store_id, equipment_id, target_date, notes, manager_id)
+            """INSERT INTO lhm_app.app_work_orders (store_id, equipment_id, target_date, notes, manager_id)
                VALUES ($1,$2,$3::date,$4,$5) RETURNING id""",
             req.store_id, req.equipment_id, req.target_date, req.notes, req.manager_id,
         )
@@ -82,7 +82,7 @@ async def work_order_status(req: WorkOrderStatusUpdate):
     pool = await get_lakebase_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE app_work_orders SET status = $1, updated_at = now() WHERE id = $2",
+            "UPDATE lhm_app.app_work_orders SET status = $1, updated_at = now() WHERE id = $2",
             req.status, req.work_order_id,
         )
         return {"ok": True}

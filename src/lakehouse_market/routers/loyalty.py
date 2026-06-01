@@ -105,7 +105,7 @@ async def offer_push(req: OfferPush):
     pool = await get_lakebase_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO app_offer_pushes (store_id, member_id, offer_id, scope, daypart)
+            """INSERT INTO lhm_app.app_offer_pushes (store_id, member_id, offer_id, scope, daypart)
                VALUES ($1,$2,$3,$4,$5) RETURNING id""",
             req.store_id, req.member_id, req.offer_id, req.scope, req.daypart,
         )
@@ -145,7 +145,7 @@ async def win_back(req: WinBackRequest):
     pool = await get_lakebase_pool()
     async with pool.acquire() as conn:
         await conn.executemany(
-            """INSERT INTO app_offer_pushes (store_id, member_id, offer_id, scope, daypart)
+            """INSERT INTO lhm_app.app_offer_pushes (store_id, member_id, offer_id, scope, daypart)
                VALUES ($1,$2,$3,$4,$5)""",
             rows,
         )

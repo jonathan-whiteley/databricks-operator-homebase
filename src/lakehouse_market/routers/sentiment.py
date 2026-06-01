@@ -138,7 +138,7 @@ async def review_action(req: ReviewAction):
     pool = await get_lakebase_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO app_review_responses (store_id, review_id, action, response_text, manager_id)
+            """INSERT INTO lhm_app.app_review_responses (store_id, review_id, action, response_text, manager_id)
                VALUES ($1,$2,$3,$4,$5) RETURNING id""",
             req.store_id, req.review_id, req.action, req.response_text, req.manager_id,
         )

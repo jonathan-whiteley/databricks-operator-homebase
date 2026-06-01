@@ -94,7 +94,7 @@ async def override(req: OverrideRequest):
     pool = await get_lakebase_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO app_labor_overrides (store_id, date, daypart, headcount, note, manager_id)
+            """INSERT INTO lhm_app.app_labor_overrides (store_id, date, daypart, headcount, note, manager_id)
                VALUES ($1, $2::date, $3, $4, $5, $6) RETURNING id""",
             req.store_id,
             req.date,
