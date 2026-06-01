@@ -91,13 +91,14 @@ class OverrideResponse(BaseModel):
 
 @router.post("/override", response_model=OverrideResponse)
 async def override(req: OverrideRequest):
+    from datetime import date as _date
     pool = await get_lakebase_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """INSERT INTO lhm_app.app_labor_overrides (store_id, date, daypart, headcount, note, manager_id)
-               VALUES ($1, $2::date, $3, $4, $5, $6) RETURNING id""",
+               VALUES ($1, $2, $3, $4, $5, $6) RETURNING id""",
             req.store_id,
-            req.date,
+            _date.fromisoformat(req.date),
             req.daypart,
             req.headcount,
             req.note,

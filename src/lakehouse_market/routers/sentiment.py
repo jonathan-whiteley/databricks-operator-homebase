@@ -95,9 +95,19 @@ def digest(store_id: int):
         "Reviews:\n"
         + "\n".join(f"- [{s['sentiment']}] {s['text']}" for s in samples)
     )
-    text = call_fm(prompt)
+    raw = call_fm(prompt)
+    text = _strip_md(raw)
     _DIGEST_CACHE[store_id] = (now, text)
     return {"text": text, "generated_at": now}
+
+
+def _strip_md(s: str) -> str:
+    """Strip bold/italic/heading markdown so the chat surface shows plain text."""
+    import re as _re
+    s = _re.sub(r"\*\*(.+?)\*\*", r"\1", s)
+    s = _re.sub(r"(?<!\*)\*([^*]+?)\*(?!\*)", r"\1", s)
+    s = _re.sub(r"^#+\s*", "", s, flags=_re.MULTILINE)
+    return s.strip()
 
 
 class TimelinePoint(BaseModel):

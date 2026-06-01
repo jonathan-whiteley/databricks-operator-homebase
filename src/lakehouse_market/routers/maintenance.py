@@ -62,12 +62,14 @@ class WorkOrder(BaseModel):
 
 @router.post("/work-order")
 async def work_order(req: WorkOrder):
+    from datetime import date as _date
     pool = await get_lakebase_pool()
     async with pool.acquire() as conn:
+        target = _date.fromisoformat(req.target_date) if req.target_date else None
         row = await conn.fetchrow(
             """INSERT INTO lhm_app.app_work_orders (store_id, equipment_id, target_date, notes, manager_id)
-               VALUES ($1,$2,$3::date,$4,$5) RETURNING id""",
-            req.store_id, req.equipment_id, req.target_date, req.notes, req.manager_id,
+               VALUES ($1,$2,$3,$4,$5) RETURNING id""",
+            req.store_id, req.equipment_id, target, req.notes, req.manager_id,
         )
         return {"id": row["id"]}
 
