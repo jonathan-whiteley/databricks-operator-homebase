@@ -1,14 +1,15 @@
-.PHONY: install dev dev-api dev-ui build deploy run-init validate test fmt clean help
+.PHONY: install setup dev dev-api dev-ui build deploy run-init validate test fmt clean help
 
 help:
 	@echo "Targets:"
 	@echo "  install   Install Python + UI deps (uv + npm)"
+	@echo "  setup     One-shot deploy from scratch (warehouse + grants + init + Genie + app)"
 	@echo "  dev       Start API (8000) and UI dev server (5173) in parallel"
 	@echo "  dev-api   Start FastAPI with reload"
 	@echo "  dev-ui    Start Vite dev server"
 	@echo "  build     Build the UI into src/lakehouse_market/static/"
 	@echo "  validate  databricks bundle validate"
-	@echo "  deploy    Build UI + databricks bundle deploy"
+	@echo "  deploy    Build UI + databricks bundle deploy (assumes setup ran once)"
 	@echo "  run-init  databricks bundle run lhm_init_job (data-gen + ML)"
 	@echo "  test      Run pytest"
 	@echo "  fmt       ruff format + check"
@@ -17,6 +18,9 @@ help:
 install:
 	uv sync --all-extras
 	cd ui && npm install
+
+setup: install
+	bash scripts/setup.sh
 
 dev:
 	@trap 'kill 0' INT; \
