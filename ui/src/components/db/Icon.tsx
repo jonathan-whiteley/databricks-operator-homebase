@@ -73,6 +73,12 @@ export const PATHS = {
   cash: "M2 7h20v10H2zM12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 9v6M18 9v6",
   history: "M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2",
   info: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 8h.01M11 12h1v4h1",
+  book:
+    "M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5a2.5 2.5 0 1 0 0 5H20M4 4.5V22",
+  screen:
+    "M3 4h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM8 22h8M12 18v4",
+  diagram:
+    "M5 4h4v4H5zM15 4h4v4h-4zM10 16h4v4h-4zM7 8v3a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V8M12 13v3",
 } as const;
 
 export type IconName = keyof typeof PATHS;

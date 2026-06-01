@@ -20,6 +20,9 @@ const InventoryView = lazy(() => import("./pages/InventoryView"));
 const EquipmentView = lazy(() => import("./pages/EquipmentView"));
 const MembersView = lazy(() => import("./pages/MembersView"));
 const FeedbackView = lazy(() => import("./pages/FeedbackView"));
+const TalkTrackView = lazy(() => import("./pages/TalkTrackView"));
+const ReferenceDeckView = lazy(() => import("./pages/ReferenceDeckView"));
+const ArchitectureView = lazy(() => import("./pages/ArchitectureView"));
 
 export function App() {
   return (
@@ -66,6 +69,14 @@ export function App() {
                   <Route path="/equipment" element={<EquipmentView />} />
                   <Route path="/members" element={<MembersView />} />
                   <Route path="/feedback" element={<FeedbackView />} />
+
+                  {/* Reference */}
+                  <Route path="/reference/talk-track" element={<TalkTrackView />} />
+                  <Route path="/reference/deck" element={<ReferenceDeckView />} />
+                  <Route
+                    path="/reference/architecture"
+                    element={<ArchitectureView />}
+                  />
 
                   {/* Legacy redirects */}
                   <Route path="/loyalty" element={<Navigate to="/members" replace />} />

@@ -12,7 +12,16 @@ import { useApi } from "@/lib/api";
 import Icon, { type IconName } from "./Icon";
 import Logo from "./Logo";
 
-type NavKey = "today" | "labor" | "inventory" | "equipment" | "members" | "feedback";
+type NavKey =
+  | "today"
+  | "labor"
+  | "inventory"
+  | "equipment"
+  | "members"
+  | "feedback"
+  | "talk-track"
+  | "deck"
+  | "architecture";
 
 type NavEntry = {
   to: string;
@@ -21,13 +30,24 @@ type NavEntry = {
   key: NavKey;
 };
 
-const NAV: NavEntry[] = [
+const OPERATIONS: NavEntry[] = [
   { to: "/today", label: "Today", icon: "today", key: "today" },
   { to: "/labor", label: "Labor", icon: "labor", key: "labor" },
   { to: "/inventory", label: "Inventory", icon: "inventory", key: "inventory" },
   { to: "/equipment", label: "Equipment", icon: "equipment", key: "equipment" },
   { to: "/members", label: "Loyalty", icon: "members", key: "members" },
   { to: "/feedback", label: "Guest Feedback", icon: "feedback", key: "feedback" },
+];
+
+const REFERENCE: NavEntry[] = [
+  { to: "/reference/talk-track", label: "Talk Track", icon: "book", key: "talk-track" },
+  { to: "/reference/deck", label: "Reference Deck", icon: "screen", key: "deck" },
+  {
+    to: "/reference/architecture",
+    label: "Architecture",
+    icon: "diagram",
+    key: "architecture",
+  },
 ];
 
 type BriefShape = {
@@ -47,8 +67,17 @@ export default function Sidebar() {
   const { data } = useApi<BriefShape>(["today-brief"], "/today/brief");
   const outstanding = data?.outstanding;
   const countFor = (key: NavKey): number => {
-    if (!outstanding || key === "today") return 0;
-    return outstanding[key] ?? 0;
+    if (!outstanding) return 0;
+    if (
+      key === "labor" ||
+      key === "inventory" ||
+      key === "equipment" ||
+      key === "members" ||
+      key === "feedback"
+    ) {
+      return outstanding[key] ?? 0;
+    }
+    return 0;
   };
   return (
     <aside
@@ -111,77 +140,15 @@ export default function Sidebar() {
           overflow: "auto",
         }}
       >
-        {NAV.map((it) => {
-          const n = countFor(it.key);
-          return (
-            <NavLink
-              key={it.to}
-              to={it.to}
-              className="hb-nav"
-              style={({ isActive }) => ({
-                display: "flex",
-                alignItems: "center",
-                gap: 11,
-                padding: "8px 11px",
-                borderRadius: 7,
-                border: 0,
-                textAlign: "left",
-                textDecoration: "none",
-                cursor: "pointer",
-                background: isActive ? "var(--db-navy-700)" : "transparent",
-                color: isActive ? "#fff" : "var(--db-navy-300)",
-                fontSize: 13.5,
-                fontWeight: isActive ? 500 : 400,
-                fontFamily: "var(--font-sans)",
-                position: "relative",
-              })}
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        left: -12,
-                        top: 8,
-                        bottom: 8,
-                        width: 3,
-                        borderRadius: 3,
-                        background: "var(--db-lava-600)",
-                      }}
-                    />
-                  )}
-                  <Icon
-                    name={it.icon}
-                    size={17}
-                    color={isActive ? "var(--db-lava-500)" : "var(--db-navy-400)"}
-                  />
-                  {it.label}
-                  {n > 0 ? (
-                    <span
-                      style={{
-                        marginLeft: "auto",
-                        fontSize: 10.5,
-                        fontWeight: 600,
-                        minWidth: 18,
-                        height: 18,
-                        padding: "0 5px",
-                        borderRadius: 999,
-                        background: isActive ? "var(--db-lava-600)" : "var(--db-navy-700)",
-                        color: "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {n > 99 ? "99+" : n}
-                    </span>
-                  ) : null}
-                </>
-              )}
-            </NavLink>
-          );
-        })}
+        <SectionLabel>Operations</SectionLabel>
+        {OPERATIONS.map((it) => (
+          <NavRow key={it.to} entry={it} count={countFor(it.key)} />
+        ))}
+        <SectionDivider />
+        <SectionLabel>Reference</SectionLabel>
+        {REFERENCE.map((it) => (
+          <NavRow key={it.to} entry={it} count={0} />
+        ))}
       </nav>
       <div
         style={{
@@ -225,5 +192,104 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
+  );
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div
+      style={{
+        padding: "10px 11px 4px",
+        fontSize: 10.5,
+        fontWeight: 600,
+        letterSpacing: "0.09em",
+        textTransform: "uppercase",
+        color: "var(--db-navy-500)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SectionDivider() {
+  return (
+    <div
+      style={{
+        margin: "8px 11px",
+        height: 1,
+        background: "var(--db-navy-700)",
+      }}
+    />
+  );
+}
+
+function NavRow({ entry, count }: { entry: NavEntry; count: number }) {
+  return (
+    <NavLink
+      to={entry.to}
+      className="hb-nav"
+      style={({ isActive }) => ({
+        display: "flex",
+        alignItems: "center",
+        gap: 11,
+        padding: "8px 11px",
+        borderRadius: 7,
+        border: 0,
+        textAlign: "left",
+        textDecoration: "none",
+        cursor: "pointer",
+        background: isActive ? "var(--db-navy-700)" : "transparent",
+        color: isActive ? "#fff" : "var(--db-navy-300)",
+        fontSize: 13.5,
+        fontWeight: isActive ? 500 : 400,
+        fontFamily: "var(--font-sans)",
+        position: "relative",
+      })}
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <span
+              style={{
+                position: "absolute",
+                left: -12,
+                top: 8,
+                bottom: 8,
+                width: 3,
+                borderRadius: 3,
+                background: "var(--db-lava-600)",
+              }}
+            />
+          )}
+          <Icon
+            name={entry.icon}
+            size={17}
+            color={isActive ? "var(--db-lava-500)" : "var(--db-navy-400)"}
+          />
+          {entry.label}
+          {count > 0 ? (
+            <span
+              style={{
+                marginLeft: "auto",
+                fontSize: 10.5,
+                fontWeight: 600,
+                minWidth: 18,
+                height: 18,
+                padding: "0 5px",
+                borderRadius: 999,
+                background: isActive ? "var(--db-lava-600)" : "var(--db-navy-700)",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {count > 99 ? "99+" : count}
+            </span>
+          ) : null}
+        </>
+      )}
+    </NavLink>
   );
 }
