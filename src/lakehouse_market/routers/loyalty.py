@@ -110,3 +110,43 @@ async def offer_push(req: OfferPush):
             req.store_id, req.member_id, req.offer_id, req.scope, req.daypart,
         )
         return {"id": row["id"]}
+
+
+class WinBackRequest(BaseModel):
+    store_id: int
+    segment: str = "lapsed"
+    offer_id: int
+
+
+@router.post("/win-back")
+async def win_back(req: WinBackRequest):
+    """Bulk win-back push for lapsing high-value members in a store's catchment.
+
+    Selection: members whose preferred store is this store, with
+    churn_probability > 0.7 and predicted_clv > 200 (loose "lapsing
+    high-value"). One row per member is written to app_offer_pushes via
+    asyncpg.executemany for a single round-trip insert.
+    """
+    members = fetch_all(
+        """SELECT m.member_id
+           FROM loyalty_members m
+           JOIN churn_predictions cp USING (member_id)
+           WHERE m.preferred_store_id = :store_id
+             AND cp.churn_probability > 0.7
+             AND cp.predicted_clv > 200""",
+        {"store_id": req.store_id},
+    )
+    if not members:
+        return {"count": 0}
+    rows = [
+        (req.store_id, m["member_id"], req.offer_id, "member", None)
+        for m in members
+    ]
+    pool = await get_lakebase_pool()
+    async with pool.acquire() as conn:
+        await conn.executemany(
+            """INSERT INTO app_offer_pushes (store_id, member_id, offer_id, scope, daypart)
+               VALUES ($1,$2,$3,$4,$5)""",
+            rows,
+        )
+    return {"count": len(rows)}

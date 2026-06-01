@@ -11,10 +11,12 @@ import { GeniePanel, Sidebar, ToastProvider, TopBar } from "./components/db";
 import { GeniePanelProvider } from "./state/genie-panel";
 
 // HubPage is preserved on disk during the Phase 5 transition but no longer
-// mounted on `/today` — TodayView is the new home.
+// mounted on `/today` — TodayView is the new home. LoyaltyPage similarly
+// stays on disk through Phase 9 but is no longer mounted — MembersView
+// is the new `/members` home.
 const TodayView = lazy(() => import("./pages/TodayView"));
 const LaborPage = lazy(() => import("./pages/LaborPage"));
-const LoyaltyPage = lazy(() => import("./pages/LoyaltyPage"));
+const MembersView = lazy(() => import("./pages/MembersView"));
 const SupplyPage = lazy(() => import("./pages/SupplyPage"));
 const FeedbackView = lazy(() => import("./pages/FeedbackView"));
 const EquipmentView = lazy(() => import("./pages/EquipmentView"));
@@ -62,7 +64,7 @@ export function App() {
                   <Route path="/labor" element={<LaborPage />} />
                   <Route path="/inventory" element={<SupplyPage />} />
                   <Route path="/equipment" element={<EquipmentView />} />
-                  <Route path="/members" element={<LoyaltyPage />} />
+                  <Route path="/members" element={<MembersView />} />
                   <Route path="/feedback" element={<FeedbackView />} />
 
                   {/* Legacy redirects */}
