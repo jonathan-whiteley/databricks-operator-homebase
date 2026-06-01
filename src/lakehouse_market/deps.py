@@ -67,6 +67,10 @@ async def get_lakebase_pool() -> asyncpg.Pool:
         # If env auth didn't fill the static password slot (Lakebase doesn't
         # support static passwords), mint a fresh OAuth token instead.
         password = s.lakebase_password or await _mint_lakebase_token()
+        async def _init_conn(conn: asyncpg.Connection) -> None:
+            # Route all unqualified table references to the schema the SP owns.
+            await conn.execute("SET search_path TO lhm_app, public")
+
         _pool = await asyncpg.create_pool(
             host=host,
             database=s.lakebase_db,
@@ -75,6 +79,7 @@ async def get_lakebase_pool() -> asyncpg.Pool:
             ssl="require",
             min_size=1,
             max_size=4,
+            init=_init_conn,
         )
     return _pool
 

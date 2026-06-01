@@ -1,5 +1,11 @@
 -- src/lakehouse_market/lakebase_schema.sql
-CREATE TABLE IF NOT EXISTS app_labor_overrides (
+-- The App SP has CAN_CONNECT_AND_CREATE on the database but not CREATE on the
+-- default `public` schema. Make our own schema (CREATE SCHEMA only needs DB-
+-- level CREATE) and put all app tables there. asyncpg sets search_path on
+-- connection so callers don't need to qualify.
+CREATE SCHEMA IF NOT EXISTS lhm_app;
+
+CREATE TABLE IF NOT EXISTS lhm_app.app_labor_overrides (
   id BIGSERIAL PRIMARY KEY,
   store_id INT NOT NULL,
   date DATE NOT NULL,
@@ -10,7 +16,7 @@ CREATE TABLE IF NOT EXISTS app_labor_overrides (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS app_offer_pushes (
+CREATE TABLE IF NOT EXISTS lhm_app.app_offer_pushes (
   id BIGSERIAL PRIMARY KEY,
   store_id INT NOT NULL,
   member_id BIGINT,
@@ -20,7 +26,7 @@ CREATE TABLE IF NOT EXISTS app_offer_pushes (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS app_purchase_orders (
+CREATE TABLE IF NOT EXISTS lhm_app.app_purchase_orders (
   id BIGSERIAL PRIMARY KEY,
   store_id INT NOT NULL,
   sku_id INT NOT NULL,
@@ -31,7 +37,7 @@ CREATE TABLE IF NOT EXISTS app_purchase_orders (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS app_review_responses (
+CREATE TABLE IF NOT EXISTS lhm_app.app_review_responses (
   id BIGSERIAL PRIMARY KEY,
   store_id INT NOT NULL,
   review_id BIGINT NOT NULL,
@@ -41,7 +47,7 @@ CREATE TABLE IF NOT EXISTS app_review_responses (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS app_work_orders (
+CREATE TABLE IF NOT EXISTS lhm_app.app_work_orders (
   id BIGSERIAL PRIMARY KEY,
   store_id INT NOT NULL,
   equipment_id BIGINT NOT NULL,
