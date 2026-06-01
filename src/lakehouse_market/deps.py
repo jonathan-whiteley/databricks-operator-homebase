@@ -40,14 +40,23 @@ _pool: Optional[asyncpg.Pool] = None
 
 
 async def _mint_lakebase_token() -> str:
-    """Generate a fresh OAuth token scoped to the Lakebase instance."""
+    """Generate a fresh OAuth token scoped to the Lakebase instance.
+
+    Uses the high-level SDK call so the path is resolved by the SDK, not by us.
+    The raw POST /api/2.0/database/generate-database-credential path gets
+    rewritten differently across SDK versions and was failing with "No API found".
+    """
     w = _workspace_client()
-    resp = w.api_client.do(
-        "POST",
-        "/api/2.0/database/generate-database-credential",
-        body={"instance_names": [_LAKEBASE_INSTANCE]},
+    resp = w.database.generate_database_credential(
+        instance_names=[_LAKEBASE_INSTANCE],
     )
-    return resp["token"]
+    # SDK returns a response object with .token or a dict — handle both.
+    token = getattr(resp, "token", None)
+    if token is None and isinstance(resp, dict):
+        token = resp.get("token")
+    if not token:
+        raise RuntimeError(f"generate_database_credential returned no token: {resp!r}")
+    return token
 
 
 async def get_lakebase_pool() -> asyncpg.Pool:
