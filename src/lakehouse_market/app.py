@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .lakebase_migrate import run_migrations
-from .routers import genie, labor, loyalty, maintenance, meta, sentiment, supply
+from .routers import genie, labor, loyalty, maintenance, meta, sentiment, supply, today
 
 
 @asynccontextmanager
@@ -36,6 +36,7 @@ app.include_router(supply.router)
 app.include_router(sentiment.router)
 app.include_router(maintenance.router)
 app.include_router(genie.router)
+app.include_router(today.router)
 
 
 @app.get("/api/health")

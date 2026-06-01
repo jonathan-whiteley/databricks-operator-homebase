@@ -3,29 +3,53 @@
 // 236px navy-900 left rail. Six nav items, optional outstanding-count badges,
 // a (cosmetic) search button, and a manager profile chip at the bottom.
 // Active state is driven by react-router's NavLink, so URL changes propagate
-// automatically.
+// automatically. Badge counts come from /api/today/brief (shared with the
+// Today view) so the rail stays in sync with the daily brief.
 import { NavLink } from "react-router-dom";
+
+import { useApi } from "@/lib/api";
 
 import Icon, { type IconName } from "./Icon";
 import Logo from "./Logo";
+
+type NavKey = "today" | "labor" | "inventory" | "equipment" | "members" | "feedback";
 
 type NavEntry = {
   to: string;
   label: string;
   icon: IconName;
-  outstanding?: number;
+  key: NavKey;
 };
 
 const NAV: NavEntry[] = [
-  { to: "/today", label: "Today", icon: "today" },
-  { to: "/labor", label: "Labor", icon: "labor" },
-  { to: "/inventory", label: "Inventory", icon: "inventory" },
-  { to: "/equipment", label: "Equipment", icon: "equipment" },
-  { to: "/members", label: "Loyalty", icon: "members" },
-  { to: "/feedback", label: "Guest Feedback", icon: "feedback" },
+  { to: "/today", label: "Today", icon: "today", key: "today" },
+  { to: "/labor", label: "Labor", icon: "labor", key: "labor" },
+  { to: "/inventory", label: "Inventory", icon: "inventory", key: "inventory" },
+  { to: "/equipment", label: "Equipment", icon: "equipment", key: "equipment" },
+  { to: "/members", label: "Loyalty", icon: "members", key: "members" },
+  { to: "/feedback", label: "Guest Feedback", icon: "feedback", key: "feedback" },
 ];
 
+type BriefShape = {
+  outstanding: {
+    labor: number;
+    inventory: number;
+    equipment: number;
+    members: number;
+    feedback: number;
+  };
+};
+
 export default function Sidebar() {
+  // The brief is also fetched by TodayView; react-query dedupes on the shared
+  // ["today-brief"] key so this is a free read. Loading/error states fall
+  // through to badge counts of 0 (no badge rendered).
+  const { data } = useApi<BriefShape>(["today-brief"], "/today/brief");
+  const outstanding = data?.outstanding;
+  const countFor = (key: NavKey): number => {
+    if (!outstanding || key === "today") return 0;
+    return outstanding[key] ?? 0;
+  };
   return (
     <aside
       style={{
@@ -87,74 +111,77 @@ export default function Sidebar() {
           overflow: "auto",
         }}
       >
-        {NAV.map((it) => (
-          <NavLink
-            key={it.to}
-            to={it.to}
-            className="hb-nav"
-            style={({ isActive }) => ({
-              display: "flex",
-              alignItems: "center",
-              gap: 11,
-              padding: "8px 11px",
-              borderRadius: 7,
-              border: 0,
-              textAlign: "left",
-              textDecoration: "none",
-              cursor: "pointer",
-              background: isActive ? "var(--db-navy-700)" : "transparent",
-              color: isActive ? "#fff" : "var(--db-navy-300)",
-              fontSize: 13.5,
-              fontWeight: isActive ? 500 : 400,
-              fontFamily: "var(--font-sans)",
-              position: "relative",
-            })}
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <span
-                    style={{
-                      position: "absolute",
-                      left: -12,
-                      top: 8,
-                      bottom: 8,
-                      width: 3,
-                      borderRadius: 3,
-                      background: "var(--db-lava-600)",
-                    }}
+        {NAV.map((it) => {
+          const n = countFor(it.key);
+          return (
+            <NavLink
+              key={it.to}
+              to={it.to}
+              className="hb-nav"
+              style={({ isActive }) => ({
+                display: "flex",
+                alignItems: "center",
+                gap: 11,
+                padding: "8px 11px",
+                borderRadius: 7,
+                border: 0,
+                textAlign: "left",
+                textDecoration: "none",
+                cursor: "pointer",
+                background: isActive ? "var(--db-navy-700)" : "transparent",
+                color: isActive ? "#fff" : "var(--db-navy-300)",
+                fontSize: 13.5,
+                fontWeight: isActive ? 500 : 400,
+                fontFamily: "var(--font-sans)",
+                position: "relative",
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        left: -12,
+                        top: 8,
+                        bottom: 8,
+                        width: 3,
+                        borderRadius: 3,
+                        background: "var(--db-lava-600)",
+                      }}
+                    />
+                  )}
+                  <Icon
+                    name={it.icon}
+                    size={17}
+                    color={isActive ? "var(--db-lava-500)" : "var(--db-navy-400)"}
                   />
-                )}
-                <Icon
-                  name={it.icon}
-                  size={17}
-                  color={isActive ? "var(--db-lava-500)" : "var(--db-navy-400)"}
-                />
-                {it.label}
-                {it.outstanding && it.outstanding > 0 ? (
-                  <span
-                    style={{
-                      marginLeft: "auto",
-                      fontSize: 10.5,
-                      fontWeight: 600,
-                      minWidth: 18,
-                      height: 18,
-                      padding: "0 5px",
-                      borderRadius: 999,
-                      background: isActive ? "var(--db-lava-600)" : "var(--db-navy-700)",
-                      color: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {it.outstanding > 99 ? "99+" : it.outstanding}
-                  </span>
-                ) : null}
-              </>
-            )}
-          </NavLink>
-        ))}
+                  {it.label}
+                  {n > 0 ? (
+                    <span
+                      style={{
+                        marginLeft: "auto",
+                        fontSize: 10.5,
+                        fontWeight: 600,
+                        minWidth: 18,
+                        height: 18,
+                        padding: "0 5px",
+                        borderRadius: 999,
+                        background: isActive ? "var(--db-lava-600)" : "var(--db-navy-700)",
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {n > 99 ? "99+" : n}
+                    </span>
+                  ) : null}
+                </>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
       <div
         style={{
