@@ -1,27 +1,20 @@
 // ui/src/pages/TodayView.tsx
 //
-// Phase 5 Today view: Genie-first home that mirrors the design template
-// `/tmp/claude_design/lakehouse-market-homebase-app/project/app/home.jsx`
-// faithfully. Renders a 5-card KPI strip, a navy hero card with the daily
-// brief + action chips + Ask bar, and a 5-card "Jump into a module" rail.
-// Data comes from /api/today/brief, which the Sidebar also consumes for
-// nav badges.
+// Today view. Two sections:
+//   1. AI hero (Genie · your daily brief) — unchanged navy-900 card with
+//      spotlight prose, action chips, and an "Ask anything" bar.
+//   2. Radial module hub — Genie at the center, 5 module nodes on spokes
+//      arranged around a dashed circle. Mirrors the latest design template
+//      (lakehouse-market-homebase-app/project/app/home.jsx).
+//
+// The KPI strip from the previous iteration is intentionally removed —
+// the design dropped it in favor of the radial hub as the primary visual.
 import { useNavigate } from "react-router-dom";
 
-import { Btn, Card, Delta, Icon, LEVEL, PATHS, Spark } from "@/components/db";
+import { Btn, Icon, LEVEL, PATHS } from "@/components/db";
 import type { IconName, PillLevel } from "@/components/db";
 import { useApi } from "@/lib/api";
 import { useGeniePanel } from "@/state/genie-panel";
-
-type KPI = {
-  label: string;
-  value: string;
-  delta?: string | null;
-  sub?: string | null;
-  up?: boolean | null;
-  spark: number[];
-  color: string;
-};
 
 type Module = "labor" | "inventory" | "equipment" | "members" | "feedback";
 
@@ -36,31 +29,21 @@ export type TodayBrief = {
   yesterday_revenue: number;
   yesterday_delta_pct: number;
   today_forecast: number;
-  kpis: KPI[];
+  // kpis ship from the backend but the design dropped the strip — keep the
+  // type field so the API contract stays stable.
+  kpis: unknown[];
   outstanding: Outstanding;
   first_action: FirstAction;
 };
 
-// Match the design's KPI color tokens (home.jsx:27-33).
-const KPI_COLORS: Record<string, string> = {
-  lava: "var(--db-lava-600)",
-  blue: "var(--db-blue-600)",
-  green: "var(--db-green-600)",
-  yellow: "var(--db-yellow-600)",
-  navy: "var(--db-navy-600)",
-};
-
-// Action chip labels — pulled verbatim from ACTION_LABELS in home.jsx:3-9.
 const CHIP_LABEL: Record<Module, (n: number) => string | null> = {
   equipment: (n) => (n ? "Schedule cooler service" : null),
-  labor: (n) => (n ? `Approve ${n} timecard${n > 1 ? "s" : ""}` : null),
+  labor: (n) => (n ? `Approve ${n} day-part schedule${n > 1 ? "s" : ""}` : null),
   inventory: (n) => (n ? `Release ${n} reorder${n > 1 ? "s" : ""}` : null),
   members: (n) => (n ? `Send win-back to ${n} members` : null),
   feedback: (n) => (n ? `Reply to ${n} review${n > 1 ? "s" : ""}` : null),
 };
 
-// CHIP_ORDER mirrors home.jsx:10 — equipment first because the cooler
-// drives the headline prose, then the rest in nav order.
 const CHIP_ORDER: Module[] = ["equipment", "labor", "inventory", "members", "feedback"];
 
 type ModuleEntry = {
@@ -71,14 +54,12 @@ type ModuleEntry = {
   level: PillLevel;
 };
 
-// Module rail — mirrors MODS in home.jsx:20-26. Levels match the design's
-// per-module tint choices in home.jsx:105.
 const MODULES: ModuleEntry[] = [
   {
     id: "labor",
     icon: "labor",
     name: "Labor",
-    signal: (n) => (n ? `${n} timecards to approve` : "All approved"),
+    signal: (n) => (n ? `${n} schedules to approve` : "All approved"),
     level: "warn",
   },
   {
@@ -119,14 +100,10 @@ const MODULE_ROUTE: Record<Module, string> = {
   feedback: "/feedback",
 };
 
-// home.jsx pulls `store.manager` from app context; the demo persona is Maya.
 const STORE_MANAGER = "Maya";
 
 function formatAnchorDate(): string {
-  // The aggregator anchors on demo_anchor_date (2025-10-30 today). Keeping
-  // the display in sync with the back-end window matters more than the wall
-  // clock for the spotlight prose.
-  const d = new Date(2025, 9, 30); // Oct 30 2025
+  const d = new Date(2025, 9, 30); // demo data window ends 2025-10-30
   return d.toLocaleDateString("en-US", {
     weekday: "long",
     month: "short",
@@ -147,26 +124,6 @@ function TodaySkeleton() {
     <div style={{ maxWidth: 1120, margin: "0 auto" }}>
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(5,1fr)",
-          gap: 12,
-          marginBottom: 22,
-        }}
-      >
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            style={{
-              height: 96,
-              borderRadius: 12,
-              background: "var(--db-oat-medium)",
-              border: "1px solid var(--db-gray-lines)",
-            }}
-          />
-        ))}
-      </div>
-      <div
-        style={{
           height: 240,
           borderRadius: 18,
           background: "var(--db-navy-900)",
@@ -174,19 +131,245 @@ function TodaySkeleton() {
           marginBottom: 28,
         }}
       />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div
+      <div
+        style={{
+          height: 600,
+          borderRadius: 18,
+          background: "var(--db-oat-medium)",
+          border: "1px solid var(--db-gray-lines)",
+        }}
+      />
+    </div>
+  );
+}
+
+// ===== Radial hub =====
+// Geometry from the design template: 600px square, center at (300,300),
+// radius 212px to the centers of the module nodes; each node is a 150px
+// white circle. Spokes are dashed lines on the ring + solid lines from
+// center to each node.
+const HUB_SIZE = 600;
+const HUB_CENTER = HUB_SIZE / 2;
+const HUB_RADIUS = 212;
+const NODE_SIZE = 150;
+const CENTER_SIZE = 150;
+
+type HubNode = {
+  m: ModuleEntry;
+  count: number;
+  done: boolean;
+  lv: (typeof LEVEL)[PillLevel];
+  x: number;
+  y: number;
+};
+
+function buildHubNodes(outstanding: Outstanding): HubNode[] {
+  return MODULES.map((m, i) => {
+    const count = outstanding[m.id] ?? 0;
+    const done = count === 0;
+    const lv = done ? LEVEL.ok : LEVEL[m.level];
+    const angle = (-90 + i * (360 / MODULES.length)) * (Math.PI / 180);
+    return {
+      m,
+      count,
+      done,
+      lv,
+      x: HUB_CENTER + HUB_RADIUS * Math.cos(angle),
+      y: HUB_CENTER + HUB_RADIUS * Math.sin(angle),
+    };
+  });
+}
+
+function RadialHub({
+  outstanding,
+  totalOpen,
+  onOpenGenie,
+}: {
+  outstanding: Outstanding;
+  totalOpen: number;
+  onOpenGenie: () => void;
+}) {
+  const navigate = useNavigate();
+  const nodes = buildHubNodes(outstanding);
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: HUB_SIZE,
+        height: HUB_SIZE,
+        margin: "8px auto 0",
+      }}
+    >
+      <svg
+        width={HUB_SIZE}
+        height={HUB_SIZE}
+        style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+      >
+        <circle
+          cx={HUB_CENTER}
+          cy={HUB_CENTER}
+          r={HUB_RADIUS}
+          fill="none"
+          stroke="var(--db-gray-lines)"
+          strokeWidth="1.5"
+          strokeDasharray="3 7"
+          opacity="0.8"
+        />
+        {nodes.map((n, i) => (
+          <line
             key={i}
-            style={{
-              height: 120,
-              borderRadius: 12,
-              background: "var(--db-oat-medium)",
-              border: "1px solid var(--db-gray-lines)",
-            }}
+            x1={HUB_CENTER}
+            y1={HUB_CENTER}
+            x2={n.x}
+            y2={n.y}
+            stroke="var(--db-gray-lines)"
+            strokeWidth="1.5"
           />
         ))}
-      </div>
+      </svg>
+
+      {/* Center — Ask Genie */}
+      <button
+        type="button"
+        onClick={onOpenGenie}
+        className="hb-hub"
+        style={{
+          position: "absolute",
+          left: HUB_CENTER,
+          top: HUB_CENTER,
+          transform: "translate(-50%, -50%)",
+          width: CENTER_SIZE,
+          height: CENTER_SIZE,
+          borderRadius: 999,
+          background: "var(--db-navy-900)",
+          border: "5px solid var(--db-oat-light)",
+          boxShadow: "var(--shadow-lg)",
+          cursor: "pointer",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 7,
+          color: "#fff",
+          textAlign: "center",
+          padding: 10,
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 11,
+            background: "var(--db-lava-600)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon name="spark" size={22} color="#fff" />
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em" }}>
+          Ask Genie
+        </div>
+        <div style={{ fontSize: 10.5, color: "var(--db-navy-400)", lineHeight: 1.3 }}>
+          {totalOpen > 0
+            ? `${totalOpen} ${totalOpen === 1 ? "item needs" : "items need"} you`
+            : "All caught up"}
+        </div>
+      </button>
+
+      {/* Module nodes */}
+      {nodes.map(({ m, count, done, lv, x, y }) => (
+        <button
+          key={m.id}
+          type="button"
+          onClick={() => navigate(MODULE_ROUTE[m.id])}
+          className="hb-node"
+          style={{
+            position: "absolute",
+            left: x,
+            top: y,
+            transform: "translate(-50%, -50%)",
+            width: NODE_SIZE,
+            height: NODE_SIZE,
+            borderRadius: 999,
+            background: "#fff",
+            border: done
+              ? "1px solid var(--db-gray-lines)"
+              : `2px solid ${lv.dot}`,
+            boxShadow: "var(--shadow-sm)",
+            cursor: "pointer",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 7,
+            padding: 14,
+            textAlign: "center",
+          }}
+        >
+          {done ? (
+            <span style={{ position: "absolute", top: 16, right: 20, display: "flex" }}>
+              <Icon name="check" size={15} color="var(--db-green-600)" stroke={2.4} />
+            </span>
+          ) : (
+            <span
+              style={{
+                position: "absolute",
+                top: 14,
+                right: 18,
+                minWidth: 22,
+                height: 22,
+                padding: "0 6px",
+                borderRadius: 999,
+                background: lv.bg,
+                color: lv.fg,
+                fontSize: 11,
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {count > 99 ? "99+" : count}
+            </span>
+          )}
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: lv.bg,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon name={m.icon} size={22} color={lv.fg} />
+          </div>
+          <div
+            style={{
+              fontSize: 13.5,
+              fontWeight: 600,
+              color: "var(--db-navy-800)",
+              letterSpacing: "-0.01em",
+              lineHeight: 1.1,
+            }}
+          >
+            {m.name}
+          </div>
+          <div
+            style={{
+              fontSize: 10.5,
+              color: "var(--db-gray-text)",
+              lineHeight: 1.25,
+              maxWidth: 118,
+            }}
+          >
+            {m.signal(count)}
+          </div>
+        </button>
+      ))}
     </div>
   );
 }
@@ -200,7 +383,7 @@ export default function TodayView() {
     return <TodaySkeleton />;
   }
 
-  const { kpis, outstanding, first_action, yesterday_revenue, today_forecast } = data;
+  const { outstanding, first_action, yesterday_revenue, today_forecast } = data;
   const yesterdayUp = data.yesterday_delta_pct >= 0;
   const chips = CHIP_ORDER.map((id) => ({
     id,
@@ -210,73 +393,8 @@ export default function TodayView() {
   const dateLabel = formatAnchorDate();
 
   return (
-    // home.jsx wraps everything in a 1120px-centered column. The outer App
-    // shell already supplies the oat-light background and 28px 32px padding;
-    // we just center the column here.
     <div style={{ maxWidth: 1120, margin: "0 auto" }}>
-      {/* ===== KPI strip ===== */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(5,1fr)",
-          gap: 12,
-          marginBottom: 22,
-        }}
-      >
-        {kpis.map((k) => {
-          const color = KPI_COLORS[k.color] ?? "var(--db-lava-600)";
-          return (
-            <Card key={k.label} pad="14px 16px">
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--db-gray-text)",
-                  fontWeight: 500,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                {k.label}
-              </div>
-              <div
-                style={{
-                  fontSize: 25,
-                  fontWeight: 600,
-                  color: "var(--db-navy-800)",
-                  letterSpacing: "-0.02em",
-                  margin: "5px 0 4px",
-                }}
-              >
-                {k.value}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-end",
-                  justifyContent: "space-between",
-                  gap: 6,
-                }}
-              >
-                {k.delta ? (
-                  <Delta up={Boolean(k.up)} size={11.5}>
-                    {k.delta}
-                  </Delta>
-                ) : (
-                  <span style={{ fontSize: 11.5, color: "var(--db-gray-text)" }}>
-                    {k.sub ?? ""}
-                  </span>
-                )}
-                <Spark pts={k.spark} color={color} w={62} h={24} />
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* ===== AI hero (Genie · your daily brief) =====
-          Structure traces home.jsx:53-95 line-for-line: navy-900 bg, 18px
-          radius, decorative spark SVG positioned top-right, eyebrow row,
-          spotlight prose, action chips, ask bar. */}
+      {/* ===== AI hero (Genie · your daily brief) ===== */}
       <div
         style={{
           background: "var(--db-navy-900)",
@@ -298,7 +416,6 @@ export default function TodayView() {
           <path d={PATHS.spark} />
         </svg>
 
-        {/* Eyebrow row: lava-tile + "Genie · your daily brief" + monospace date */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
           <div
             style={{
@@ -336,9 +453,6 @@ export default function TodayView() {
           </span>
         </div>
 
-        {/* Spotlight prose — wired to the live brief. Mirrors the spotlight
-            variant in home.jsx:69 with bold revenue, colored delta, and a
-            lava-tinted first-action callout from first_action.label. */}
         <p
           style={{
             fontSize: 22.5,
@@ -385,8 +499,6 @@ export default function TodayView() {
           )}
         </p>
 
-        {/* Action chips row (home.jsx:78-88). Equipment chip carries the lava
-            dot prefix per design. Each chip routes to its module. */}
         {totalOpen > 0 && (
           <div
             style={{
@@ -433,8 +545,6 @@ export default function TodayView() {
           </div>
         )}
 
-        {/* Ask bar — opens the global Genie slide-over. Mirrors home.jsx:90-94
-            with a primary Btn carrying the arrow icon. */}
         <div
           onClick={openPanel}
           role="button"
@@ -469,13 +579,13 @@ export default function TodayView() {
         </div>
       </div>
 
-      {/* ===== Module rail (home.jsx:97-119) ===== */}
+      {/* ===== Radial module hub ===== */}
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
-          marginTop: 28,
-          marginBottom: 14,
+          marginTop: 30,
         }}
       >
         <h2
@@ -483,88 +593,20 @@ export default function TodayView() {
             fontSize: 16,
             fontWeight: 500,
             color: "var(--db-navy-800)",
-            margin: 0,
+            margin: "0 0 4px",
           }}
         >
           Jump into a module
         </h2>
+        <p style={{ fontSize: 13, color: "var(--db-gray-text)", margin: 0 }}>
+          Five spokes, one console — Genie sits at the center.
+        </p>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
-        {MODULES.map((m) => {
-          const n = outstanding[m.id];
-          const done = !n;
-          const lv = done ? LEVEL.ok : LEVEL[m.level];
-          return (
-            <Card
-              key={m.id}
-              hover
-              pad={16}
-              onClick={() => navigate(MODULE_ROUTE[m.id])}
-              style={{
-                cursor: "pointer",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 9,
-                    background: lv.bg,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Icon name={m.icon} size={18} color={lv.fg} />
-                </div>
-                {done ? (
-                  <Icon name="check" size={16} color="var(--db-green-600)" stroke={2.2} />
-                ) : (
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 999,
-                      background: lv.dot,
-                    }}
-                  />
-                )}
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: 13.5,
-                    fontWeight: 500,
-                    color: "var(--db-navy-800)",
-                  }}
-                >
-                  {m.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "var(--db-gray-text)",
-                    marginTop: 3,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {m.signal(n)}
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      <RadialHub
+        outstanding={outstanding}
+        totalOpen={totalOpen}
+        onOpenGenie={openPanel}
+      />
     </div>
   );
 }
