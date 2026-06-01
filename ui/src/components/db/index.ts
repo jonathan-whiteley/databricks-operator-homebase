@@ -21,3 +21,5 @@ export { default as Sidebar } from "./Sidebar";
 export { default as TopBar } from "./TopBar";
 export { default as GeniePanel } from "./GeniePanel";
 export { ToastProvider, useToast } from "./ToastRegion";
+export { default as DayPartPlannerCard, staffingFor } from "./DayPartPlannerCard";
+export type { DaypartId, DayPartPlannerCardProps } from "./DayPartPlannerCard";

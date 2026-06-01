@@ -296,3 +296,8 @@ html, body {
   100%      { opacity: 0.2; }
 }
 .hb-dots { animation: hb-dots 1.2s var(--ease-in-out) infinite; }
+
+@keyframes hb-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
