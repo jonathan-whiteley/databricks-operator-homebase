@@ -3,7 +3,7 @@
 # Aggregator endpoint that powers the new TodayView. Pulls a single payload
 # combining headline KPIs, sparkline series, outstanding counts per module
 # and a single "first action" callout. Everything anchors to
-# get_settings().demo_anchor_date so the demo data window always lines up.
+# get_anchor_date() so the demo data window always lines up.
 from __future__ import annotations
 
 from typing import Any
@@ -12,7 +12,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from ..config import get_settings
-from ..sql_utils import fetch_all
+from ..sql_utils import fetch_all, get_anchor_date
 
 router = APIRouter(prefix="/api/today", tags=["today"])
 
@@ -140,7 +140,7 @@ def _outstanding(store_id: int, anchor: str) -> Outstanding:
 @router.get("/brief", response_model=TodayBrief)
 def brief() -> TodayBrief:
     settings = get_settings()
-    anchor = settings.demo_anchor_date
+    anchor = get_anchor_date()
     store_id = DEMO_STORE_ID
 
     history = _sales_history(store_id, anchor)

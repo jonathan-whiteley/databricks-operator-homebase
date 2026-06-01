@@ -69,3 +69,38 @@ def clear_query_cache() -> int:
     n = len(_CACHE)
     _CACHE.clear()
     return n
+
+
+# Dynamic demo anchor date — the most recent date present in the dataset.
+# Queried lazily on first use; cached for the lifetime of the process.
+# An explicit DEMO_ANCHOR_DATE env var overrides this (useful for tests).
+_ANCHOR_DATE: str | None = None
+
+
+def get_anchor_date() -> str:
+    """Return the most recent date in daily_sales_forecast as a YYYY-MM-DD string.
+
+    Callers should prefer this over a hardcoded date so the demo keeps working
+    no matter how stale the synthetic data is.
+    """
+    global _ANCHOR_DATE
+    if _ANCHOR_DATE is not None:
+        return _ANCHOR_DATE
+    import os
+    forced = os.getenv("DEMO_ANCHOR_DATE", "").strip()
+    if forced:
+        _ANCHOR_DATE = forced
+        return forced
+    try:
+        rows = _execute_with_retry(
+            "SELECT cast(MAX(date) AS string) AS d FROM daily_sales_forecast"
+        )
+        d = (rows[0].get("d") if rows else None) or ""
+        if d:
+            _ANCHOR_DATE = d
+            return d
+    except Exception:
+        pass
+    # Last-resort fallback so the app boots even if the table is missing.
+    _ANCHOR_DATE = "2025-10-30"
+    return _ANCHOR_DATE

@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 from ..config import get_settings
 from ..serving import invoke_serving
-from ..sql_utils import fetch_all
+from ..sql_utils import fetch_all, get_anchor_date
 
 router = APIRouter(prefix="/api/labor", tags=["labor"])
 
@@ -27,7 +27,7 @@ def today(store_id: int, date: str | None = None):
     # date that has data for this store. Demo data ends 2025-10-30 so any
     # "today" past that returns empty without this fallback.
     rows = []
-    target_date = date or get_settings().demo_anchor_date
+    target_date = date or get_anchor_date()
     if date:
         rows = fetch_all(
             """SELECT daypart, forecast_revenue, forecast_transactions
@@ -50,7 +50,7 @@ def today(store_id: int, date: str | None = None):
             {"store_id": store_id},
         )
         if rows:
-            target_date = get_settings().demo_anchor_date
+            target_date = get_anchor_date()
     return {"store_id": store_id, "date": target_date, "dayparts": rows}
 
 

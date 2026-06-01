@@ -57,7 +57,9 @@ async def _mint_lakebase_token() -> str:
     host = (w.config.host or get_settings().databricks_host or "").rstrip("/")
     if not host:
         raise RuntimeError("Databricks host not resolvable from WorkspaceClient or env")
-    url = f"{host}/api/2.0/database/generate-database-credential"
+    # NOTE: actual REST path (verified via `databricks --debug`) is /credentials,
+    # not /generate-database-credential which the older SDK error implied.
+    url = f"{host}/api/2.0/database/credentials"
     async with httpx.AsyncClient(timeout=15.0) as client:
         r = await client.post(
             url,

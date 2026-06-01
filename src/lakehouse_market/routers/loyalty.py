@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from ..config import get_settings
-from ..sql_utils import fetch_all
+from ..sql_utils import fetch_all, get_anchor_date
 
 router = APIRouter(prefix="/api/loyalty", tags=["loyalty"])
 
@@ -17,7 +17,7 @@ class LoyaltyKPIs(BaseModel):
 
 @router.get("/kpis", response_model=LoyaltyKPIs)
 def kpis(store_id: int):
-    anchor = get_settings().demo_anchor_date
+    anchor = get_anchor_date()
     rows = fetch_all(
         """SELECT
             count(DISTINCT m.member_id) FILTER (WHERE t.ts > to_timestamp(:anchor) - INTERVAL 30 DAYS) AS active_members,
@@ -69,7 +69,7 @@ class MapPoint(BaseModel):
 
 @router.get("/map", response_model=list[MapPoint])
 def map_points(store_id: int):
-    anchor = get_settings().demo_anchor_date
+    anchor = get_anchor_date()
     return fetch_all(
         """SELECT m.member_id, m.lat, m.lon,
             CASE

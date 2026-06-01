@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from ..config import get_settings
-from ..sql_utils import fetch_all
+from ..sql_utils import fetch_all, get_anchor_date
 
 router = APIRouter(prefix="/api/supply", tags=["supply"])
 
@@ -60,7 +60,7 @@ def tomorrow_deliveries(store_id: int, date: str | None = None):
     # Use the requested date if any deliveries match, otherwise return the
     # next 7 days of scheduled inbound from the demo anchor date so the tab
     # always has something to display.
-    anchor = date or get_settings().demo_anchor_date
+    anchor = date or get_anchor_date()
     rows = fetch_all(
         """SELECT po.po_id, po.sku_id, po.supplier_id, sup.name AS supplier_name,
                   po.ordered_qty, cast(po.expected_date AS string) AS expected_date

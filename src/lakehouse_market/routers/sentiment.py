@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from ..config import get_settings
 from ..fm import call_fm
-from ..sql_utils import fetch_all
+from ..sql_utils import fetch_all, get_anchor_date
 
 router = APIRouter(prefix="/api/sentiment", tags=["sentiment"])
 
@@ -27,7 +27,7 @@ class InboxRow(BaseModel):
 def inbox(store_id: int, since: str | None = None, limit: int = 30):
     # Anchor to demo data window (30 days back from the dataset's end) when no
     # since param is passed so the inbox always populates.
-    anchor = get_settings().demo_anchor_date
+    anchor = get_anchor_date()
     if not since:
         since = anchor
     rows = fetch_all(
@@ -69,7 +69,7 @@ def digest(store_id: int):
     cached = _DIGEST_CACHE.get(store_id)
     if cached and now - cached[0] < 3600:
         return {"text": cached[1], "generated_at": cached[0]}
-    anchor = get_settings().demo_anchor_date
+    anchor = get_anchor_date()
     # Widen to 14d + inclusive so the digest always has samples even when the
     # anchor lands on the dataset's max review date.
     samples = fetch_all(
@@ -109,7 +109,7 @@ class TimelinePoint(BaseModel):
 
 @router.get("/timeline", response_model=list[TimelinePoint])
 def timeline(store_id: int, days: int = 30):
-    anchor = get_settings().demo_anchor_date
+    anchor = get_anchor_date()
     return fetch_all(
         """SELECT cast(to_date(r.ts) AS string) AS date,
               count_if(rs.sentiment='positive') AS positive,
