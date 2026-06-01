@@ -6,6 +6,8 @@ Six modules — Today / Labor / Inventory / Equipment / Loyalty / Guest Feedback
 
 > Working name: `lakehouse-market-e2e-DAIS-demo` · Product name in the UI: **Lakehouse Market · Homebase**
 
+**Deployed:** [`lakehouse-market-homebase`](https://lakehouse-market-homebase-66306676349647.aws.databricksapps.com) on `fe-vm-jdub-vm-serverless` (branch `feature/claude-design-homebase`).
+
 ---
 
 ## Audience
@@ -77,6 +79,14 @@ This runs `scripts/setup.sh` which is **idempotent** — safe to re-run. Under t
 
 Total time on a fresh workspace: ~12-15 minutes (most of it is the init job).
 
+**Redeploying an existing workspace** (UI changes only, no resource churn):
+
+```bash
+make build       # bundles UI into src/lakehouse_market/static/
+databricks bundle deploy
+databricks bundle run homebase
+```
+
 **Prereqs:**
 
 - `databricks` CLI v0.230+ authenticated to the target workspace (`databricks auth login`)
@@ -108,7 +118,7 @@ Every view uses a shared design system at `ui/src/components/db/*` (Btn, Pill, C
 
 | # | Route | View | What it does | Writes to |
 |---|---|---|---|---|
-| 1 | `/today` | TodayView | KPI strip + Genie hero (today's brief) + 5-card module rail | n/a |
+| 1 | `/today` | TodayView | Genie-at-center radial hub (5 module nodes) + today's-brief hero card. Sidebar logo uses the Databricks symbol SVG | n/a |
 | 2 | `/labor` | LaborView | Day-part planner cards with override + Recompute + Lock | `app_labor_overrides` |
 | 3 | `/inventory` | InventoryView | Per-vendor PO cards + tomorrow's deliveries + "Release order" | `app_purchase_orders` |
 | 4 | `/equipment` | EquipmentView | Navy CoolerAlert hero + at-risk grid + service scheduling | `app_work_orders` |
