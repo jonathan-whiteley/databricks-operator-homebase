@@ -1,9 +1,12 @@
 // ui/src/pages/SupplyPage.tsx
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable } from "@/components/DataTable";
 import { GenieChat } from "@/components/GenieChat";
 import { MetricCard } from "@/components/MetricCard";
+import { useToast } from "@/components/Toast";
 import { api, useApi } from "@/lib/api";
 import { useStoreId } from "@/state/store";
 import { Bar, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -37,6 +40,8 @@ export default function SupplyPage() {
   const [storeId] = useStoreId();
   const today = new Date().toISOString().slice(0, 10);
   const qc = useQueryClient();
+  const toast = useToast();
+  const [confirming, setConfirming] = useState<Reorder | null>(null);
   const reorders = useApi<Reorder[]>(["supply-reorders", storeId], "/supply/reorder-queue", { store_id: storeId });
   const deliveries = useApi<Delivery[]>(
     ["supply-deliveries", storeId, today],
@@ -44,15 +49,22 @@ export default function SupplyPage() {
     { store_id: storeId, date: today },
   );
 
-  async function releasePO(r: Reorder) {
-    await api.post("/supply/release-po", {
-      store_id: storeId,
-      sku_id: r.sku_id,
-      supplier_id: r.supplier_id,
-      quantity: Math.max(r.reorder_point * 2, 20),
-      target_date: addDays(today, 3),
-    });
-    qc.invalidateQueries({ queryKey: ["supply-reorders", storeId] });
+  async function confirmReleasePO(r: Reorder, note: string) {
+    try {
+      await api.post("/supply/release-po", {
+        store_id: storeId,
+        sku_id: r.sku_id,
+        supplier_id: r.supplier_id,
+        quantity: Math.max(r.reorder_point * 2, 20),
+        target_date: addDays(today, 3),
+        note: note || null,
+      });
+      qc.invalidateQueries({ queryKey: ["supply-reorders", storeId] });
+      setConfirming(null);
+      toast.success("PO released — written to app_purchase_orders");
+    } catch (err: any) {
+      toast.error(`Couldn't save: ${err?.message ?? "unknown error"}`);
+    }
   }
 
   return (
@@ -103,7 +115,7 @@ export default function SupplyPage() {
                 align: "right",
                 render: (r) => (
                   <button
-                    onClick={() => releasePO(r)}
+                    onClick={() => setConfirming(r)}
                     className="rounded-md bg-[color:var(--color-lava)] px-2 py-1 text-xs font-semibold text-white"
                   >
                     Release PO
@@ -133,6 +145,30 @@ export default function SupplyPage() {
           "Which supplier has missed delivery windows recently?",
           "Show inbound POs for tomorrow",
         ]}
+      />
+      <ConfirmDialog
+        open={confirming != null}
+        title="Release purchase order?"
+        description="The PO will be written to app_purchase_orders in Lakebase and dispatched to the supplier."
+        details={
+          confirming
+            ? [
+                { label: "SKU", value: `${confirming.sku_name} (#${confirming.sku_id})` },
+                { label: "Supplier", value: confirming.supplier_name },
+                { label: "On hand", value: String(confirming.on_hand) },
+                {
+                  label: "Reorder qty",
+                  value: String(Math.max(confirming.reorder_point * 2, 20)),
+                },
+                { label: "Target delivery", value: addDays(today, 3) },
+              ]
+            : []
+        }
+        noteLabel="PO note (optional)"
+        onCancel={() => setConfirming(null)}
+        onConfirm={async (note) => {
+          if (confirming) await confirmReleasePO(confirming, note);
+        }}
       />
     </div>
   );

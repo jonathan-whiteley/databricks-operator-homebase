@@ -2,11 +2,13 @@
 import { Check, Coffee, Crown, Sparkles } from "lucide-react";
 import { useState, type ComponentType } from "react";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable } from "@/components/DataTable";
 import { GenieChat } from "@/components/GenieChat";
 import { MetricCard } from "@/components/MetricCard";
 import { Sparkline } from "@/components/Sparkline";
 import { StoreMap, type MapPoint } from "@/components/StoreMap";
+import { useToast } from "@/components/Toast";
 import { api, useApi } from "@/lib/api";
 import { cn, money, pct } from "@/lib/util";
 import { useStoreId } from "@/state/store";
@@ -84,11 +86,14 @@ export default function LoyaltyPage() {
 
   const center = stores.data?.find((s) => s.store_id === storeId);
   const [activated, setActivated] = useState<Record<number, boolean>>({});
-  const [pending, setPending] = useState<Record<number, boolean>>({});
+  const [confirmingOfferId, setConfirmingOfferId] = useState<number | null>(null);
+  const toast = useToast();
+  const confirmingOffer = SUGGESTIONS.find((s) => s.offer_id === confirmingOfferId) ?? null;
 
-  async function activateOffer(offer_id: number) {
-    if (activated[offer_id]) return;
-    setPending((p) => ({ ...p, [offer_id]: true }));
+  async function confirmActivate(offer_id: number, _note: string) {
+    // We deliberately drop the note for offer-push: the
+    // app_offer_pushes table has no notes column and we don't want to
+    // round-trip an unused field. Keep the dialog input for parity.
     try {
       await api.post("/loyalty/offer-push", {
         store_id: storeId,
@@ -96,8 +101,10 @@ export default function LoyaltyPage() {
         scope: "counter_prompt",
       });
       setActivated((a) => ({ ...a, [offer_id]: true }));
-    } finally {
-      setPending((p) => ({ ...p, [offer_id]: false }));
+      setConfirmingOfferId(null);
+      toast.success("Counter-prompt activated — written to app_offer_pushes");
+    } catch (err: any) {
+      toast.error(`Couldn't save: ${err?.message ?? "unknown error"}`);
     }
   }
 
@@ -165,7 +172,6 @@ export default function LoyaltyPage() {
           <div className="grid gap-3 md:grid-cols-3">
             {SUGGESTIONS.map((s) => {
               const isOn = activated[s.offer_id];
-              const isBusy = pending[s.offer_id];
               const Icon = s.icon;
               return (
                 <article
@@ -211,14 +217,13 @@ export default function LoyaltyPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => activateOffer(s.offer_id)}
-                    disabled={isOn || isBusy}
+                    onClick={() => setConfirmingOfferId(s.offer_id)}
+                    disabled={isOn}
                     className={cn(
                       "mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white transition-colors",
                       isOn
                         ? "bg-[color:var(--color-success)]"
                         : "bg-[color:var(--color-lava)] hover:opacity-90",
-                      isBusy && "opacity-70",
                     )}
                   >
                     {isOn ? (
@@ -226,8 +231,6 @@ export default function LoyaltyPage() {
                         <Check className="size-3.5" strokeWidth={3} />
                         Activated
                       </>
-                    ) : isBusy ? (
-                      "Activating…"
                     ) : (
                       "Activate today"
                     )}
@@ -289,6 +292,26 @@ export default function LoyaltyPage() {
           "Which offer worked best at my store last month?",
           "Show me my top 10 loyalty members this week",
         ]}
+      />
+      <ConfirmDialog
+        open={confirmingOffer != null}
+        title="Push counter-prompt offer?"
+        description="The next time these members pay, the counter will surface this offer."
+        details={
+          confirmingOffer
+            ? [
+                { label: "Offer", value: confirmingOffer.name },
+                { label: "Audience", value: confirmingOffer.audience },
+                { label: "Predicted lift", value: confirmingOffer.lift },
+                { label: "Scope", value: "Counter-prompt" },
+              ]
+            : []
+        }
+        noteLabel="Manager note"
+        onCancel={() => setConfirmingOfferId(null)}
+        onConfirm={async (note) => {
+          if (confirmingOffer) await confirmActivate(confirmingOffer.offer_id, note);
+        }}
       />
     </div>
   );

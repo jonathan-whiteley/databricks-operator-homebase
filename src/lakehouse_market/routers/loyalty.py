@@ -95,6 +95,9 @@ class OfferPush(BaseModel):
     offer_id: int
     scope: str  # 'member' | 'counter_prompt'
     daypart: str | None = None
+    # Accepted but not persisted: app_offer_pushes has no notes column and we
+    # don't want a schema migration just to round-trip a UI-only field.
+    note: str | None = None
 
 
 @router.post("/offer-push")

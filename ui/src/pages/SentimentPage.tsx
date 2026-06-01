@@ -2,9 +2,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DataTable } from "@/components/DataTable";
 import { GenieChat } from "@/components/GenieChat";
 import { MetricCard } from "@/components/MetricCard";
+import { useToast } from "@/components/Toast";
 import { api, useApi } from "@/lib/api";
 import { useStoreId } from "@/state/store";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -20,10 +22,42 @@ type Inbox = {
 };
 type Digest = { text: string; generated_at: number };
 
+type PendingAction = {
+  review: Inbox;
+  action: "respond" | "flag" | "resolve";
+};
+
+const ACTION_COPY: Record<PendingAction["action"], {
+  title: string;
+  description: string;
+  noteLabel: string;
+  toast: string;
+}> = {
+  respond: {
+    title: "Send public response to this review?",
+    description: "The response will be saved to app_review_responses and posted to the review channel.",
+    noteLabel: "Your response to the customer",
+    toast: "Response saved — written to app_review_responses",
+  },
+  flag: {
+    title: "Flag this review for follow-up?",
+    description: "The flag is written to app_review_responses for the ops queue.",
+    noteLabel: "Reason (optional)",
+    toast: "Review flagged — written to app_review_responses",
+  },
+  resolve: {
+    title: "Mark this review resolved?",
+    description: "Marks the review as handled in app_review_responses.",
+    noteLabel: "Reason (optional)",
+    toast: "Review resolved — written to app_review_responses",
+  },
+};
+
 export default function SentimentPage() {
   const [storeId] = useStoreId();
   const since = "2025-10-01";
   const qc = useQueryClient();
+  const toast = useToast();
   const inbox = useApi<Inbox[]>(["sentiment-inbox", storeId, since], "/sentiment/inbox", { store_id: storeId, since });
   const digest = useApi<Digest>(["sentiment-digest", storeId], "/sentiment/digest", { store_id: storeId });
   const timeline = useApi<{ date: string; positive: number; neutral: number; negative: number }[]>(
@@ -31,28 +65,24 @@ export default function SentimentPage() {
     "/sentiment/timeline",
     { store_id: storeId, days: 30 },
   );
-  const [drafting, setDrafting] = useState<number | null>(null);
-  const [text, setText] = useState("");
+  const [pending, setPending] = useState<PendingAction | null>(null);
 
-  async function respond(reviewId: number) {
-    await api.post("/sentiment/review-action", {
-      store_id: storeId,
-      review_id: reviewId,
-      action: "respond",
-      response_text: text,
-    });
-    setDrafting(null);
-    setText("");
-    qc.invalidateQueries({ queryKey: ["sentiment-inbox", storeId, since] });
-  }
-
-  async function act(reviewId: number, action: "flag" | "resolve") {
-    await api.post("/sentiment/review-action", {
-      store_id: storeId,
-      review_id: reviewId,
-      action,
-    });
-    qc.invalidateQueries({ queryKey: ["sentiment-inbox", storeId, since] });
+  async function confirmAction(p: PendingAction, note: string) {
+    try {
+      await api.post("/sentiment/review-action", {
+        store_id: storeId,
+        review_id: p.review.review_id,
+        action: p.action,
+        // For 'respond' the note IS the public response; for flag/resolve
+        // it's an internal manager note — same column either way.
+        response_text: note || null,
+      });
+      qc.invalidateQueries({ queryKey: ["sentiment-inbox", storeId, since] });
+      setPending(null);
+      toast.success(ACTION_COPY[p.action].toast);
+    } catch (err: any) {
+      toast.error(`Couldn't save: ${err?.message ?? "unknown error"}`);
+    }
   }
 
   return (
@@ -98,44 +128,28 @@ export default function SentimentPage() {
               key: "_act",
               header: "",
               align: "right",
-              render: (r) =>
-                drafting === r.review_id ? (
-                  <div className="flex gap-1">
-                    <input
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      className="w-40 rounded border px-1 py-0.5 text-xs"
-                      placeholder="response…"
-                    />
-                    <button
-                      onClick={() => respond(r.review_id)}
-                      className="rounded-md bg-[color:var(--color-lava)] px-2 py-1 text-xs text-white"
-                    >
-                      Send
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setDrafting(r.review_id)}
-                      className="rounded-md bg-[color:var(--color-lava)] px-2 py-1 text-xs text-white"
-                    >
-                      Respond
-                    </button>
-                    <button
-                      onClick={() => act(r.review_id, "flag")}
-                      className="rounded-md bg-[color:var(--color-warning)] px-2 py-1 text-xs text-white"
-                    >
-                      Flag
-                    </button>
-                    <button
-                      onClick={() => act(r.review_id, "resolve")}
-                      className="rounded-md bg-[color:var(--color-success)] px-2 py-1 text-xs text-white"
-                    >
-                      Resolve
-                    </button>
-                  </div>
-                ),
+              render: (r) => (
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setPending({ review: r, action: "respond" })}
+                    className="rounded-md bg-[color:var(--color-lava)] px-2 py-1 text-xs text-white"
+                  >
+                    Respond
+                  </button>
+                  <button
+                    onClick={() => setPending({ review: r, action: "flag" })}
+                    className="rounded-md bg-[color:var(--color-warning)] px-2 py-1 text-xs text-white"
+                  >
+                    Flag
+                  </button>
+                  <button
+                    onClick={() => setPending({ review: r, action: "resolve" })}
+                    className="rounded-md bg-[color:var(--color-success)] px-2 py-1 text-xs text-white"
+                  >
+                    Resolve
+                  </button>
+                </div>
+              ),
             },
           ]}
         />
@@ -147,6 +161,29 @@ export default function SentimentPage() {
           "Which day-part gets the worst reviews?",
           "Compare my store's rating to nearby stores",
         ]}
+      />
+      <ConfirmDialog
+        open={pending != null}
+        title={pending ? ACTION_COPY[pending.action].title : ""}
+        description={pending ? ACTION_COPY[pending.action].description : undefined}
+        details={
+          pending
+            ? [
+                { label: "Source", value: pending.review.source },
+                { label: "Rating", value: `${pending.review.rating}★` },
+                { label: "When", value: pending.review.ts },
+                { label: "Review", value: pending.review.snippet },
+              ]
+            : []
+        }
+        noteLabel={pending ? ACTION_COPY[pending.action].noteLabel : "Note"}
+        notePlaceholder={
+          pending?.action === "respond" ? "Write a warm, specific reply…" : undefined
+        }
+        onCancel={() => setPending(null)}
+        onConfirm={async (note) => {
+          if (pending) await confirmAction(pending, note);
+        }}
       />
     </div>
   );

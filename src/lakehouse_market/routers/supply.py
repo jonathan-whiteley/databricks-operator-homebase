@@ -84,6 +84,9 @@ class ReleasePO(BaseModel):
     quantity: int
     target_date: str
     manager_id: str | None = "demo-manager"
+    # Accepted from the UI confirmation dialog. app_purchase_orders has no
+    # note column today; persisting it is a no-op until that column is added.
+    note: str | None = None
 
 
 @router.post("/release-po")

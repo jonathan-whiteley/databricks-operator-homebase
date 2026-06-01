@@ -11,7 +11,9 @@ import { api } from "@/lib/api";
 import { cn, money } from "@/lib/util";
 import { useStoreId } from "@/state/store";
 
+import { ConfirmDialog } from "./ConfirmDialog";
 import { LaborPctRing } from "./LaborPctRing";
+import { useToast } from "./Toast";
 
 // Labor cost per head per day-part — synthetic but plausible: ~$22/hr blended
 // rate across a ~3-4 hr day-part shift. Used only to estimate labor % when
@@ -66,6 +68,7 @@ export function DayPartCard({
   date: string;
 }) {
   const [storeId] = useStoreId();
+  const toast = useToast();
   const [override, setOverride] = useState<string>("");
   // Pre-populate with the default formula so the card never shows "Cashier 0".
   // Recompute swaps in the served model's prediction.
@@ -73,7 +76,7 @@ export function DayPartCard({
   const [isModelPrediction, setIsModelPrediction] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
   const [locked, setLocked] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const Icon = ICON_FOR[daypart] ?? Sun;
   const overrideNum = override ? parseFloat(override) : null;
@@ -112,24 +115,38 @@ export function DayPartCard({
     }
   }
 
-  async function lock() {
+  async function handleConfirm(note: string) {
     if (headcount == null) return;
-    setSaving(true);
     try {
       await api.post("/labor/override", {
         store_id: storeId,
         date,
         daypart,
         headcount,
-        note: isOverridden ? "manager override" : null,
+        note: note || (isOverridden ? "manager override" : null),
       });
       setLocked(true);
-    } finally {
-      setSaving(false);
+      setConfirmOpen(false);
+      toast.success(`Locked ${daypart} — written to app_labor_overrides`);
+    } catch (err: any) {
+      toast.error(`Couldn't save: ${err?.message ?? "unknown error"}`);
     }
   }
 
   const crew = roleMix(headcount ?? 0);
+  const confirmDetails = headcount != null
+    ? [
+        { label: "Day-part", value: daypart },
+        { label: "Forecasted revenue", value: money(revenue) },
+        { label: "Headcount", value: String(headcount) },
+        {
+          label: "Roles",
+          value: `Cashier ${crew.cashier} · Cook ${crew.cook}${
+            crew.runner > 0 ? ` · Runner ${crew.runner}` : ""
+          }`,
+        },
+      ]
+    : [];
 
   return (
     <article
@@ -235,20 +252,30 @@ export function DayPartCard({
           {recomputing ? "…" : "Recompute"}
         </button>
         <button
-          onClick={lock}
-          disabled={headcount == null || saving || locked}
+          onClick={() => setConfirmOpen(true)}
+          disabled={headcount == null || locked}
           className={cn(
             "ml-auto inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold text-white transition-colors",
             locked
               ? "bg-[color:var(--color-success)]"
               : "bg-[color:var(--color-lava)] hover:opacity-90",
-            (headcount == null || saving) && !locked && "opacity-50",
+            headcount == null && !locked && "opacity-50",
           )}
         >
           {locked ? <Check className="size-3" strokeWidth={3} /> : <Lock className="size-3" strokeWidth={2.5} />}
-          {locked ? "Locked" : saving ? "…" : "Lock"}
+          {locked ? "Locked" : "Lock"}
         </button>
       </div>
+      <ConfirmDialog
+        open={confirmOpen}
+        title={`Lock ${daypart} day-part?`}
+        description="The headcount and crew mix will be written to app_labor_overrides in Lakebase."
+        details={confirmDetails}
+        noteLabel="Reason for lock / override note"
+        notePlaceholder={isOverridden ? "Why are you overriding the forecast?" : undefined}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={handleConfirm}
+      />
     </article>
   );
 }
