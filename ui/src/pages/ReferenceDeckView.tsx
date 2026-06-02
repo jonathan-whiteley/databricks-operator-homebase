@@ -1,40 +1,66 @@
 // ui/src/pages/ReferenceDeckView.tsx
 //
-// Placeholder for the embedded 6-slide reference deck. Source lives in
-// docs/slides.md; this view will render or link to the rendered deck.
-import { Card, PageHead, Pill } from "@/components/db";
+// Renders the 6-slide Homebase Capabilities deck (static HTML + deck-stage
+// custom element) in an iframe so its CSS, fonts, and keyboard navigation
+// stay isolated from the app shell. Source files live in ui/public/deck/
+// and are served verbatim by Vite at /deck/*.
+import { PageHead, Pill } from "@/components/db";
+
+const DECK_SRC = "/deck/homebase-capabilities.html";
 
 export default function ReferenceDeckView() {
   return (
-    <div style={{ maxWidth: 1100 }}>
+    <div style={{ maxWidth: 1400 }}>
       <PageHead
         icon="screen"
         title="Reference Deck"
-        sub="6-slide reference deck for the Databricks capabilities in this app — title, audience, architecture, Genie, Lakebase, business value."
+        sub="Six slides on Homebase's Databricks capabilities — Genie, Lakebase, the loop, and business value for store managers."
       >
-        <Pill level="info">Placeholder</Pill>
-      </PageHead>
-
-      <Card pad={28}>
-        <div
+        <Pill level="info">6 slides</Pill>
+        <a
+          href={DECK_SRC}
+          target="_blank"
+          rel="noreferrer"
           style={{
-            border: "2px dashed var(--db-gray-lines)",
-            borderRadius: 12,
-            padding: "60px 24px",
-            textAlign: "center",
-            color: "var(--db-gray-text)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            height: 30,
+            padding: "0 12px",
+            borderRadius: 999,
+            border: "1px solid var(--db-gray-lines)",
+            background: "#fff",
+            color: "var(--db-navy-800)",
+            fontSize: 12.5,
+            fontWeight: 500,
+            textDecoration: "none",
           }}
         >
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--db-navy-800)" }}>
-            Deck embed goes here
-          </div>
-          <p style={{ margin: "10px auto 0", maxWidth: 520, lineHeight: 1.55 }}>
-            Source: <code>docs/slides.md</code>. Render with Marp or paste into
-            Google Slides via the <code>fe-google-tools</code> markdown-to-gdocs
-            flow, then embed below.
-          </p>
-        </div>
-      </Card>
+          Open in new tab
+        </a>
+      </PageHead>
+
+      <div
+        style={{
+          background: "#06171c",
+          borderRadius: 12,
+          border: "1px solid var(--db-gray-lines)",
+          overflow: "hidden",
+          boxShadow: "var(--shadow-sm)",
+        }}
+      >
+        <iframe
+          src={DECK_SRC}
+          title="Homebase Capabilities deck"
+          style={{
+            display: "block",
+            width: "100%",
+            height: "calc(100vh - 220px)",
+            minHeight: 600,
+            border: 0,
+          }}
+        />
+      </div>
     </div>
   );
 }
