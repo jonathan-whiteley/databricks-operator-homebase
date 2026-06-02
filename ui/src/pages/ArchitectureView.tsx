@@ -1,14 +1,16 @@
 // ui/src/pages/ArchitectureView.tsx
 //
 // Interactive architecture diagram for Homebase. Built on @xyflow/react v12
-// with pan/zoom/fit, custom node cards grouped by layer, and PNG/SVG export
-// via html-to-image. Layout is left-to-right: sources → UC → compute/ML →
-// FastAPI → Lakebase write-back → UI → manager.
-import { useCallback, useMemo } from "react";
+// with pan/zoom/fit, draggable nodes (via useNodesState), and PNG/SVG export
+// via html-to-image. Layout is left-to-right: sources → Unity Catalog →
+// compute/ML → Databricks App → Lakebase write-back + Store manager.
+import { useCallback } from "react";
 import {
   Background,
   ReactFlow,
   ReactFlowProvider,
+  useNodesState,
+  useEdgesState,
   useReactFlow,
   type Edge,
   type Node,
@@ -31,19 +33,52 @@ type Layer =
   | "genie"
   | "app"
   | "lakebase"
-  | "ui"
   | "user";
 
-const LAYER: Record<Layer, { fg: string; ring: string; label: string }> = {
-  source: { fg: "#475569", ring: "#cbd5e1", label: "Sources" },
-  uc: { fg: "var(--db-lava-600)", ring: "rgba(255,82,0,0.35)", label: "Unity Catalog" },
-  warehouse: { fg: "#0ea5e9", ring: "rgba(14,165,233,0.35)", label: "Warehouse" },
-  ml: { fg: "#7c3aed", ring: "rgba(124,58,237,0.35)", label: "Model Serving / FM" },
-  genie: { fg: "#db2777", ring: "rgba(219,39,119,0.35)", label: "Genie" },
-  app: { fg: "#0f766e", ring: "rgba(15,118,110,0.35)", label: "App backend" },
-  lakebase: { fg: "var(--db-green-600)", ring: "rgba(16,185,129,0.4)", label: "Lakebase" },
-  ui: { fg: "#334155", ring: "#94a3b8", label: "UI" },
-  user: { fg: "var(--db-green-600)", ring: "rgba(16,185,129,0.4)", label: "User" },
+const LAYER: Record<Layer, { fg: string; ring: string; tint: string; label: string }> = {
+  source: { fg: "#475569", ring: "#cbd5e1", tint: "#f1f5f9", label: "Sources" },
+  uc: {
+    fg: "var(--db-lava-600)",
+    ring: "rgba(255,82,0,0.40)",
+    tint: "rgba(255,82,0,0.10)",
+    label: "Unity Catalog",
+  },
+  warehouse: {
+    fg: "#0ea5e9",
+    ring: "rgba(14,165,233,0.40)",
+    tint: "rgba(14,165,233,0.10)",
+    label: "SQL Warehouse",
+  },
+  ml: {
+    fg: "#7c3aed",
+    ring: "rgba(124,58,237,0.40)",
+    tint: "rgba(124,58,237,0.10)",
+    label: "Model Serving / FM",
+  },
+  genie: {
+    fg: "#db2777",
+    ring: "rgba(219,39,119,0.40)",
+    tint: "rgba(219,39,119,0.10)",
+    label: "Genie",
+  },
+  app: {
+    fg: "#0f766e",
+    ring: "rgba(15,118,110,0.40)",
+    tint: "rgba(15,118,110,0.10)",
+    label: "Databricks App",
+  },
+  lakebase: {
+    fg: "var(--db-green-600)",
+    ring: "rgba(16,185,129,0.45)",
+    tint: "rgba(16,185,129,0.10)",
+    label: "Lakebase",
+  },
+  user: {
+    fg: "#1f2937",
+    ring: "#94a3b8",
+    tint: "#f1f5f9",
+    label: "User",
+  },
 };
 
 type CardData = {
@@ -63,12 +98,13 @@ function CardNode({ data }: NodeProps) {
         border: `1px solid ${tone.ring}`,
         borderRadius: 12,
         padding: "10px 14px",
-        minWidth: 188,
+        minWidth: 196,
         boxShadow: "0 1px 2px rgba(15,23,42,0.04), 0 4px 14px rgba(15,23,42,0.06)",
         fontFamily: "var(--font-sans)",
         display: "flex",
         alignItems: "center",
         gap: 11,
+        cursor: "grab",
       }}
     >
       <div
@@ -76,7 +112,7 @@ function CardNode({ data }: NodeProps) {
           width: 32,
           height: 32,
           borderRadius: 8,
-          background: tone.ring,
+          background: tone.tint,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -111,12 +147,26 @@ function CardNode({ data }: NodeProps) {
       <Handle
         type="target"
         position={Position.Left}
-        style={{ background: "transparent", border: 0 }}
+        isConnectable={false}
+        style={{
+          background: "transparent",
+          border: 0,
+          width: 1,
+          height: 1,
+          pointerEvents: "none",
+        }}
       />
       <Handle
         type="source"
         position={Position.Right}
-        style={{ background: "transparent", border: 0 }}
+        isConnectable={false}
+        style={{
+          background: "transparent",
+          border: 0,
+          width: 1,
+          height: 1,
+          pointerEvents: "none",
+        }}
       />
     </div>
   );
@@ -124,39 +174,38 @@ function CardNode({ data }: NodeProps) {
 
 const nodeTypes = { card: CardNode };
 
-const NODES: Node[] = [
-  // Column 1 — sources (raw)
-  card("src-pos", 0, 0, "POS Transactions", "Daily orders + items", "cash", "source"),
-  card("src-loyalty", 0, 90, "Loyalty Members", "50k members + tiers", "members", "source"),
-  card("src-iot", 0, 180, "Equipment Telemetry", "~600 units · IoT", "thermo", "source"),
-  card("src-reviews", 0, 270, "Guest Reviews", "30k reviews", "star", "source"),
-  card("src-skus", 0, 360, "SKU Catalog", "800 SKUs + vendors", "box", "source"),
+// One source row per UC domain so every Source → UC edge is a clean horizontal.
+const INITIAL_NODES: Node[] = [
+  // Col 1 — Sources (each row aligned with its UC target row)
+  card("src-pos", 0, 60, "POS Transactions", "Daily orders + items", "cash", "source"),
+  card("src-loyalty", 0, 160, "Loyalty Members", "50k members + tiers", "members", "source"),
+  card("src-skus", 0, 260, "SKU Catalog", "800 SKUs + vendors", "box", "source"),
+  card("src-reviews", 0, 360, "Guest Reviews", "30k reviews", "star", "source"),
+  card("src-iot", 0, 460, "Equipment Telemetry", "~600 units · IoT", "thermo", "source"),
 
-  // Column 2 — UC domains
-  card("uc-shared", 320, -40, "Shared", "stores · dim_date · dim_time", "today", "uc"),
-  card("uc-labor", 320, 50, "Labor", "3 tables", "labor", "uc"),
-  card("uc-loyalty", 320, 140, "Loyalty", "5 tables · churn + CLV", "gift", "uc"),
-  card("uc-supply", 320, 230, "Supply", "5 tables · POs + forecast", "truck", "uc"),
-  card("uc-sentiment", 320, 320, "Sentiment", "3 tables · review_sentiment", "feedback", "uc"),
-  card("uc-maintenance", 320, 410, "Maintenance", "4 tables · RUL", "wrench", "uc"),
+  // Col 2 — Unity Catalog (one consolidated node, centered)
+  card(
+    "uc",
+    320,
+    260,
+    "Unity Catalog",
+    "jdub_demo.lakehouse_market · 21 tables · 6 domains",
+    "inventory",
+    "uc",
+  ),
 
-  // Column 3 — compute / ML / Genie
-  card("sql-warehouse", 640, 50, "SQL Warehouse", "Serverless · 120 min auto-stop", "spark", "warehouse"),
-  card("model-serving", 640, 150, "Model Serving", "lhm-labor-recommender · ElasticNet", "labor", "ml"),
-  card("fm", 640, 250, "Foundation Models", "Claude Sonnet 4.6 · Llama 3.3", "spark", "ml"),
-  card("genie-space", 640, 350, "Genie Space", "lhm-ops-assistant · 21 tables", "spark", "genie"),
+  // Col 3 — Compute / ML / Genie
+  card("sql-warehouse", 640, 60, "SQL Warehouse", "Serverless · auto-stop 120m", "spark", "warehouse"),
+  card("model-serving", 640, 200, "Model Serving", "lhm-labor-recommender · ElasticNet", "labor", "ml"),
+  card("fm", 640, 340, "Foundation Models", "Claude Sonnet 4.6 · Llama 3.3", "spark", "ml"),
+  card("genie-space", 640, 480, "Genie Space", "lhm-ops-assistant · all 21 tables", "spark", "genie"),
 
-  // Column 4 — App backend
-  card("fastapi", 970, 200, "FastAPI", "8 routers · asyncpg pool", "screen", "app"),
+  // Col 4 — Databricks App (combined React + FastAPI)
+  card("app", 960, 260, "Databricks App", "React + FastAPI · 8 routers", "screen", "app"),
 
-  // Column 5 — Lakebase write-back
-  card("lakebase", 1240, 200, "Lakebase Postgres", "lhm_app · 5 write tables", "diagram", "lakebase"),
-
-  // Column 6 — UI
-  card("ui", 1510, 200, "React UI", "6 modules + Genie panel", "screen", "ui"),
-
-  // Column 7 — User
-  card("manager", 1770, 200, "Store Manager", "Maya · Store #001", "user", "user"),
+  // Col 5 — Lakebase write-back + Manager (stacked)
+  card("lakebase", 1260, 180, "Lakebase Postgres", "lhm_app · 5 write tables", "diagram", "lakebase"),
+  card("manager", 1260, 340, "Store Manager", "Maya · Store #001", "user", "user"),
 ];
 
 function card(
@@ -173,15 +222,17 @@ function card(
     type: "card",
     position: { x, y },
     data: { title, sub, icon, layer },
-    draggable: true,
+    sourcePosition: Position.Right,
+    targetPosition: Position.Left,
   };
 }
 
 function edge(
   source: string,
   target: string,
-  opts: { color?: string; label?: string; animated?: boolean } = {},
+  opts: { color?: string; label?: string; animated?: boolean; dashed?: boolean } = {},
 ): Edge {
+  const dashed = opts.dashed ?? true;
   return {
     id: `${source}->${target}`,
     source,
@@ -197,59 +248,46 @@ function edge(
     labelBgStyle: { fill: "#fff" },
     labelBgPadding: [4, 2],
     style: {
-      stroke: opts.color ?? "#cbd5e1",
-      strokeWidth: 1.4,
-      strokeDasharray: "5 5",
+      stroke: opts.color ?? "#94a3b8",
+      strokeWidth: 1.5,
+      strokeDasharray: dashed ? "5 5" : undefined,
     },
     markerEnd: {
       type: MarkerType.ArrowClosed,
       color: opts.color ?? "#94a3b8",
-      width: 14,
-      height: 14,
+      width: 16,
+      height: 16,
     },
   };
 }
 
-const EDGES: Edge[] = [
-  // Sources → UC
-  edge("src-pos", "uc-labor"),
-  edge("src-pos", "uc-loyalty"),
-  edge("src-loyalty", "uc-loyalty"),
-  edge("src-iot", "uc-maintenance"),
-  edge("src-reviews", "uc-sentiment"),
-  edge("src-skus", "uc-supply"),
+const INITIAL_EDGES: Edge[] = [
+  // Sources → UC (clean horizontal lines, slight stagger via smoothstep)
+  edge("src-pos", "uc"),
+  edge("src-loyalty", "uc"),
+  edge("src-skus", "uc"),
+  edge("src-reviews", "uc"),
+  edge("src-iot", "uc"),
 
-  // UC → SQL Warehouse (reads)
-  edge("uc-shared", "sql-warehouse", { color: LAYER.warehouse.fg }),
-  edge("uc-labor", "sql-warehouse", { color: LAYER.warehouse.fg }),
-  edge("uc-loyalty", "sql-warehouse", { color: LAYER.warehouse.fg }),
-  edge("uc-supply", "sql-warehouse", { color: LAYER.warehouse.fg }),
+  // UC → Compute fan-out
+  edge("uc", "sql-warehouse", { color: LAYER.warehouse.fg }),
+  edge("uc", "model-serving", { color: LAYER.ml.fg, label: "labor training" }),
+  edge("uc", "fm", { color: LAYER.ml.fg, label: "sentiment labels" }),
+  edge("uc", "genie-space", { color: LAYER.genie.fg }),
 
-  // UC → Model Serving (training input)
-  edge("uc-labor", "model-serving", { color: LAYER.ml.fg, label: "training" }),
+  // Compute → App (live read paths — animated)
+  edge("sql-warehouse", "app", { color: LAYER.warehouse.fg, animated: true }),
+  edge("model-serving", "app", { color: LAYER.ml.fg, animated: true }),
+  edge("fm", "app", { color: LAYER.ml.fg, animated: true }),
+  edge("genie-space", "app", { color: LAYER.genie.fg, animated: true }),
 
-  // UC → FM (batch labeling)
-  edge("uc-sentiment", "fm", { color: LAYER.ml.fg, label: "labels" }),
-
-  // UC → Genie (scope)
-  edge("uc-maintenance", "genie-space", { color: LAYER.genie.fg }),
-  edge("uc-loyalty", "genie-space", { color: LAYER.genie.fg }),
-  edge("uc-sentiment", "genie-space", { color: LAYER.genie.fg }),
-
-  // Compute/ML → FastAPI
-  edge("sql-warehouse", "fastapi", { color: LAYER.warehouse.fg, animated: true }),
-  edge("model-serving", "fastapi", { color: LAYER.ml.fg, animated: true }),
-  edge("fm", "fastapi", { color: LAYER.ml.fg, animated: true }),
-  edge("genie-space", "fastapi", { color: LAYER.genie.fg, animated: true }),
-
-  // FastAPI ↔ Lakebase (writes + lakebase->UC reverse-ETL is implicit)
-  edge("fastapi", "lakebase", { color: LAYER.lakebase.fg, label: "OAuth · writes", animated: true }),
-
-  // FastAPI → UI
-  edge("fastapi", "ui", { color: LAYER.app.fg }),
-
-  // UI → Manager
-  edge("ui", "manager", { color: LAYER.user.fg }),
+  // App ↔ Lakebase + App → Manager
+  edge("app", "lakebase", {
+    color: LAYER.lakebase.fg,
+    label: "OAuth · writes",
+    animated: true,
+  }),
+  edge("app", "manager", { color: "#475569" }),
 ];
 
 function Toolbar() {
@@ -257,22 +295,16 @@ function Toolbar() {
 
   const onExport = useCallback(
     async (kind: "png" | "svg") => {
-      const wrapper = document.querySelector(
-        ".react-flow__viewport",
-      ) as HTMLElement | null;
       const flowEl = document.querySelector(".react-flow") as HTMLElement | null;
-      if (!flowEl || !wrapper) return;
+      if (!flowEl) return;
       flow.fitView({ padding: 0.12, duration: 0 });
-      // small tick so the viewport transform settles
       await new Promise((r) => setTimeout(r, 80));
       const exporter = kind === "png" ? toPng : toSvg;
       const dataUrl = await exporter(flowEl, {
         backgroundColor: "#fafaf7",
         cacheBust: true,
         pixelRatio: 2,
-        filter: (n: HTMLElement) =>
-          !n.classList?.contains?.("react-flow__minimap") &&
-          !n.classList?.contains?.("hb-arch-toolbar"),
+        filter: (n: HTMLElement) => !n.classList?.contains?.("hb-arch-toolbar"),
       });
       const a = document.createElement("a");
       a.href = dataUrl;
@@ -344,168 +376,141 @@ function ToolBtn({
 function ToolDivider() {
   return (
     <span
-      style={{
-        width: 1,
-        background: "var(--db-gray-lines)",
-        margin: "4px 2px",
-      }}
+      style={{ width: 1, background: "var(--db-gray-lines)", margin: "4px 2px" }}
     />
   );
 }
 
-function Legend() {
-  const items: { color: string; label: string }[] = [
-    { color: "#475569", label: "Sources" },
-    { color: "var(--db-lava-600)", label: "Unity Catalog" },
-    { color: "#0ea5e9", label: "SQL Warehouse" },
-    { color: "#7c3aed", label: "Model Serving / FM" },
-    { color: "#db2777", label: "Genie" },
-    { color: "#0f766e", label: "App backend" },
-    { color: "var(--db-green-600)", label: "Lakebase / User" },
+function LegendFooter() {
+  const layers: { key: Layer; label: string }[] = [
+    { key: "source", label: "Sources" },
+    { key: "uc", label: "Unity Catalog" },
+    { key: "warehouse", label: "SQL Warehouse" },
+    { key: "ml", label: "Model Serving / FM" },
+    { key: "genie", label: "Genie" },
+    { key: "app", label: "Databricks App" },
+    { key: "lakebase", label: "Lakebase" },
+    { key: "user", label: "User" },
+  ];
+  const bands = [
+    "Databricks Workflows · lhm-init job",
+    "Unity Catalog · governance",
+    "Databricks Apps · hosting",
   ];
   return (
     <div
       style={{
-        position: "absolute",
-        bottom: 12,
-        left: 12,
-        zIndex: 10,
-        background: "rgba(255,255,255,0.94)",
-        border: "1px solid var(--db-gray-lines)",
-        borderRadius: 10,
-        padding: "10px 12px",
-        boxShadow: "var(--shadow-sm)",
-        backdropFilter: "blur(6px)",
-        minWidth: 168,
+        borderTop: "1px solid var(--db-gray-lines)",
+        background: "#fff",
+        padding: "12px 16px",
+        display: "flex",
+        gap: 18,
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "space-between",
       }}
     >
       <div
         style={{
-          fontSize: 10.5,
-          fontWeight: 600,
-          letterSpacing: "0.09em",
-          textTransform: "uppercase",
-          color: "var(--db-gray-text)",
-          marginBottom: 8,
-        }}
-      >
-        Layers
-      </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "auto 1fr",
-          rowGap: 5,
-          columnGap: 8,
+          display: "flex",
           alignItems: "center",
+          gap: 14,
+          flexWrap: "wrap",
         }}
       >
-        {items.map((it) => (
-          <Row key={it.label} color={it.color} label={it.label} />
+        <span
+          style={{
+            fontSize: 10.5,
+            fontWeight: 600,
+            letterSpacing: "0.09em",
+            textTransform: "uppercase",
+            color: "var(--db-gray-text)",
+          }}
+        >
+          Layers
+        </span>
+        {layers.map((l) => (
+          <span
+            key={l.key}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              color: "var(--db-navy-800)",
+            }}
+          >
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 3,
+                background: LAYER[l.key].fg,
+                display: "block",
+              }}
+            />
+            {l.label}
+          </span>
         ))}
       </div>
       <div
         style={{
-          fontSize: 10.5,
-          color: "var(--db-gray-text)",
-          marginTop: 9,
-          paddingTop: 8,
-          borderTop: "1px solid var(--db-gray-lines)",
-          lineHeight: 1.4,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          flexWrap: "wrap",
         }}
       >
-        Drag nodes · scroll to zoom · drag empty area to pan
+        {bands.map((b) => (
+          <span
+            key={b}
+            style={{
+              background: "var(--db-gray-soft, #f5f6f8)",
+              border: "1px solid var(--db-gray-lines)",
+              borderRadius: 999,
+              padding: "4px 10px",
+              fontSize: 11,
+              color: "var(--db-navy-800)",
+              fontFamily: "var(--font-mono)",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {b}
+          </span>
+        ))}
       </div>
-    </div>
-  );
-}
-
-function Row({ color, label }: { color: string; label: string }) {
-  return (
-    <>
-      <span
-        style={{
-          width: 12,
-          height: 12,
-          borderRadius: 3,
-          background: color,
-          display: "block",
-        }}
-      />
-      <span style={{ fontSize: 12, color: "var(--db-navy-800)" }}>{label}</span>
-    </>
-  );
-}
-
-function Bands() {
-  const items = [
-    "Databricks Workflows · lhm-init job (notebooks 01-06)",
-    "Unity Catalog · governance & security",
-    "Databricks Apps · hosting (SP-owned, OAuth)",
-  ];
-  return (
-    <div
-      style={{
-        position: "absolute",
-        bottom: 12,
-        left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: 10,
-        display: "flex",
-        gap: 8,
-        flexWrap: "wrap",
-        justifyContent: "center",
-        maxWidth: "60%",
-      }}
-    >
-      {items.map((t) => (
-        <span
-          key={t}
-          style={{
-            background: "rgba(255,255,255,0.94)",
-            border: "1px solid var(--db-gray-lines)",
-            borderRadius: 999,
-            padding: "5px 12px",
-            fontSize: 11.5,
-            color: "var(--db-navy-800)",
-            fontFamily: "var(--font-mono)",
-            letterSpacing: "0.02em",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          {t}
-        </span>
-      ))}
     </div>
   );
 }
 
 function FlowInner() {
-  const nodes = useMemo(() => NODES, []);
-  const edges = useMemo(() => EDGES, []);
+  // Controlled state so node drags persist. Without onNodesChange wired up,
+  // drag is a visual no-op and snaps back on next render.
+  const [nodes, _setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
+  const [edges, _setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
 
   return (
-    <div style={{ position: "relative", height: "calc(100vh - 220px)", minHeight: 620 }}>
+    <div style={{ position: "relative", height: "calc(100vh - 280px)", minHeight: 560 }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.12 }}
         proOptions={{ hideAttribution: true }}
         minZoom={0.4}
         maxZoom={1.6}
+        nodesDraggable
         nodesConnectable={false}
-        edgesFocusable={false}
-        nodesFocusable={false}
+        elementsSelectable={false}
         panOnScroll={false}
         zoomOnScroll
       >
         <Background gap={22} size={1} color="#e2e8f0" />
       </ReactFlow>
       <Toolbar />
-      <Legend />
-      <Bands />
     </div>
   );
 }
@@ -516,7 +521,7 @@ export default function ArchitectureView() {
       <PageHead
         icon="diagram"
         title="Architecture"
-        sub="Homebase wires Unity Catalog reads, Lakebase writes, Genie, and Model Serving behind one FastAPI app. Drag to rearrange, scroll to zoom, export to PNG or SVG."
+        sub="How Homebase wires Unity Catalog reads, Lakebase writes, Genie, and Model Serving behind one Databricks App. Drag nodes · scroll to zoom · export to PNG/SVG."
       />
       <div
         style={{
@@ -530,6 +535,7 @@ export default function ArchitectureView() {
         <ReactFlowProvider>
           <FlowInner />
         </ReactFlowProvider>
+        <LegendFooter />
       </div>
     </div>
   );
