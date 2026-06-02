@@ -7,8 +7,15 @@
 import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
-import { GeniePanel, Sidebar, ToastProvider, TopBar } from "./components/db";
+import {
+  GeniePanel,
+  Sidebar,
+  ToastProvider,
+  TopBar,
+  TourOverlay,
+} from "./components/db";
 import { GeniePanelProvider } from "./state/genie-panel";
+import { TourProvider } from "./state/tour-mode";
 
 // HubPage is preserved on disk during the Phase 5 transition but no longer
 // mounted on `/today` — TodayView is the new home. LoyaltyPage similarly
@@ -28,6 +35,7 @@ export function App() {
   return (
     <ToastProvider>
       <GeniePanelProvider>
+        <TourProvider>
         <div
           style={{
             display: "flex",
@@ -91,7 +99,9 @@ export function App() {
             </div>
           </main>
           <GeniePanel />
+          <TourOverlay />
         </div>
+        </TourProvider>
       </GeniePanelProvider>
     </ToastProvider>
   );

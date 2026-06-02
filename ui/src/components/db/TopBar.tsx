@@ -11,6 +11,7 @@ import { useGeniePanel } from "@/state/genie-panel";
 
 import Btn from "./Btn";
 import Icon from "./Icon";
+import { TourButton } from "./TourButton";
 
 type Store = {
   store_id: number;
@@ -90,6 +91,7 @@ export default function TopBar() {
         >
           {date} · {clock}
         </span>
+        <TourButton />
         <Btn
           size="sm"
           variant="primary"
