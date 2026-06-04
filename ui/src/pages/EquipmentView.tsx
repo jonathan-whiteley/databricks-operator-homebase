@@ -628,6 +628,7 @@ function EqCard({
           <button
             className="hb-link"
             onClick={onSchedule}
+            data-tour-target="equipment.schedule"
             style={{
               background: "none",
               border: 0,

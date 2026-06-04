@@ -22,6 +22,8 @@ type BtnProps = {
   style?: CSSProperties;
   type?: "button" | "submit" | "reset";
   title?: string;
+  // Used by Tour Mode's animated cursor to anchor on this button.
+  dataTourTarget?: string;
 };
 
 const VARIANT_STYLE: Record<BtnVariant, CSSProperties> = {
@@ -48,6 +50,7 @@ export default function Btn({
   style,
   type = "button",
   title,
+  dataTourTarget,
 }: BtnProps) {
   const pad = size === "sm" ? "7px 12px" : size === "lg" ? "12px 20px" : "9px 15px";
   const fs = size === "sm" ? 12.5 : size === "lg" ? 15 : 13.5;
@@ -73,6 +76,7 @@ export default function Btn({
       className={`hb-btn hb-btn-${variant}`}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
+      data-tour-target={dataTourTarget}
       style={{ ...base, ...VARIANT_STYLE[variant], ...style }}
     >
       {icon && <Icon name={icon} size={fs + 1} color="currentColor" />}

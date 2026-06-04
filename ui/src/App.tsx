@@ -12,6 +12,7 @@ import {
   Sidebar,
   ToastProvider,
   TopBar,
+  TourCursor,
   TourOverlay,
 } from "./components/db";
 import { GeniePanelProvider } from "./state/genie-panel";
@@ -99,6 +100,7 @@ export function App() {
             </div>
           </main>
           <GeniePanel />
+          <TourCursor />
           <TourOverlay />
         </div>
         </TourProvider>

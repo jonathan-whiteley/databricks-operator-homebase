@@ -232,6 +232,7 @@ function RadialHub({
       <button
         type="button"
         onClick={onOpenGenie}
+        data-tour-target="today.genie"
         className="hb-hub"
         style={{
           position: "absolute",

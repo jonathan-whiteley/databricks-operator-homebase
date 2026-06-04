@@ -224,6 +224,7 @@ export default function LaborView() {
             icon="check"
             onClick={() => setApproveAllOpen(true)}
             disabled={dayparts.length === 0}
+            dataTourTarget="labor.approve"
           >
             Approve all day-part schedules
           </Btn>

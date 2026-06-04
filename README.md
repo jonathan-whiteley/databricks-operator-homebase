@@ -112,6 +112,16 @@ make test
 
 ---
 
+## Tour mode
+
+A booth-loop walkthrough hangs off the top-bar **Tour** button. It runs the script in `ui/src/lib/tour-script.ts` end-to-end in **2:00**, navigating the six routes, opening the Genie slide-over for the Genie beat, and driving an animated cursor (`ui/src/components/db/TourCursor.tsx`) that glides to each beat's primary action, rings the target, ripples on click, and fires the matching fake-success toast. The cursor never dispatches real DOM events; any real interaction (click, keydown, wheel) pauses the loop and gives the user normal control.
+
+Beat layout: `/today` 8s → `/labor` 16s → `/inventory` 16s → `/equipment` 16s → `/members` 16s → `/feedback` 16s → Genie panel 24s → `/today` 8s.
+
+Tour targets are tagged on the primary action of each view via `data-tour-target="<page>.<key>"` (`Btn` exposes a `dataTourTarget` prop). Add targets there if you extend the script.
+
+---
+
 ## View tour
 
 Every view uses a shared design system at `ui/src/components/db/*` (Btn, Pill, Card, AIRec, LakebaseTag, etc.) and routes are React Router 6.

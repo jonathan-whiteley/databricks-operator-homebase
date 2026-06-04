@@ -22,5 +22,6 @@ export { default as TopBar } from "./TopBar";
 export { default as GeniePanel } from "./GeniePanel";
 export { ToastProvider, useToast } from "./ToastRegion";
 export { TourButton, TourOverlay } from "./TourButton";
+export { TourCursor } from "./TourCursor";
 export { default as DayPartPlannerCard, staffingFor } from "./DayPartPlannerCard";
 export type { DaypartId, DayPartPlannerCardProps } from "./DayPartPlannerCard";

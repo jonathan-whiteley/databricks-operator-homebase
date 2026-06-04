@@ -148,34 +148,88 @@ function CardNode({ data }: NodeProps) {
         type="target"
         position={Position.Left}
         isConnectable={false}
-        style={{
-          background: "transparent",
-          border: 0,
-          width: 1,
-          height: 1,
-          pointerEvents: "none",
-        }}
+        style={hiddenHandle}
       />
       <Handle
         type="source"
         position={Position.Right}
         isConnectable={false}
-        style={{
-          background: "transparent",
-          border: 0,
-          width: 1,
-          height: 1,
-          pointerEvents: "none",
-        }}
+        style={hiddenHandle}
+      />
+      <Handle
+        id="bottom-source"
+        type="source"
+        position={Position.Bottom}
+        isConnectable={false}
+        style={hiddenHandle}
+      />
+      <Handle
+        id="bottom-target"
+        type="target"
+        position={Position.Bottom}
+        isConnectable={false}
+        style={hiddenHandle}
       />
     </div>
   );
 }
 
-const nodeTypes = { card: CardNode };
+const hiddenHandle: React.CSSProperties = {
+  background: "transparent",
+  border: 0,
+  width: 1,
+  height: 1,
+  pointerEvents: "none",
+};
+
+function HeaderNode({ data }: NodeProps) {
+  const d = data as unknown as { label: string };
+  return (
+    <div
+      style={{
+        fontSize: 10.5,
+        fontWeight: 700,
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        color: "var(--db-gray-text)",
+        padding: "6px 0 8px",
+        borderBottom: "1px solid var(--db-gray-lines)",
+        minWidth: 196,
+        textAlign: "center",
+        fontFamily: "var(--font-sans)",
+      }}
+    >
+      {d.label}
+    </div>
+  );
+}
+
+const nodeTypes = { card: CardNode, header: HeaderNode };
+
+// Column headers — fixed at the top of each column to give the layered feel.
+const HEADER_Y = -20;
+const HEADERS: Node[] = [
+  header("hdr-source", 0, "Source"),
+  header("hdr-uc", 320, "Lakehouse · Unity Catalog"),
+  header("hdr-compute", 640, "Compute · Serve"),
+  header("hdr-app", 960, "Application"),
+  header("hdr-write", 1260, "Operational · Write-back"),
+];
+
+function header(id: string, x: number, label: string): Node {
+  return {
+    id,
+    type: "header",
+    position: { x, y: HEADER_Y },
+    data: { label },
+    draggable: false,
+    selectable: false,
+  };
+}
 
 // One source row per UC domain so every Source → UC edge is a clean horizontal.
 const INITIAL_NODES: Node[] = [
+  ...HEADERS,
   // Col 1 — Sources (each row aligned with its UC target row)
   card("src-pos", 0, 60, "POS Transactions", "Daily orders + items", "cash", "source"),
   card("src-loyalty", 0, 160, "Loyalty Members", "50k members + tiers", "members", "source"),
@@ -288,6 +342,45 @@ const INITIAL_EDGES: Edge[] = [
     animated: true,
   }),
   edge("app", "manager", { color: "#475569" }),
+
+  // Lakebase ↔ Unity Catalog: Lakebase Sync auto-mirrors Lakebase Postgres
+  // tables into governed Delta tables in UC, so app writes flow back into
+  // the lakehouse for downstream SQL / ML / Genie reads. Routed via bottom
+  // handles so the long return arc doesn't tangle with the forward fan-out.
+  {
+    id: "lakebase<->uc",
+    source: "lakebase",
+    sourceHandle: "bottom-source",
+    target: "uc",
+    targetHandle: "bottom-target",
+    type: "smoothstep",
+    animated: true,
+    label: "Lakebase Sync · Delta mirror",
+    labelStyle: {
+      fontSize: 10.5,
+      fill: "var(--db-gray-text)",
+      fontFamily: "var(--font-mono)",
+    },
+    labelBgStyle: { fill: "#fff" },
+    labelBgPadding: [4, 2],
+    style: {
+      stroke: LAYER.lakebase.fg,
+      strokeWidth: 1.5,
+      strokeDasharray: "5 5",
+    },
+    markerStart: {
+      type: MarkerType.ArrowClosed,
+      color: LAYER.lakebase.fg,
+      width: 14,
+      height: 14,
+    },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: LAYER.lakebase.fg,
+      width: 14,
+      height: 14,
+    },
+  },
 ];
 
 function Toolbar() {

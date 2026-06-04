@@ -22,7 +22,6 @@ import {
 
 import { useNavigate } from "react-router-dom";
 
-import { useToast } from "@/components/db/ToastRegion";
 import { useGeniePanel } from "@/state/genie-panel";
 import { TOUR_BEATS, TOUR_TOTAL_MS } from "@/lib/tour-script";
 
@@ -34,6 +33,9 @@ type TourApi = {
   beatCount: number;
   caption: string;
   elapsedMs: number;
+  // Ms elapsed inside the current beat. Used by the cursor driver to
+  // schedule cues without re-tick latency.
+  beatElapsedMs: number;
   totalMs: number;
   start: () => void;
   pause: () => void;
@@ -53,7 +55,6 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const [beatElapsed, setBeatElapsed] = useState(0);
 
   const navigate = useNavigate();
-  const toast = useToast();
   const genie = useGeniePanel();
 
   // Refs so the timer callback (frozen at start) sees live values.
@@ -64,20 +65,18 @@ export function TourProvider({ children }: { children: ReactNode }) {
   beatIndexRef.current = beatIndex;
   beatElapsedRef.current = beatElapsed;
 
-  // Apply side-effects when the beat changes while playing.
+  // Apply side-effects when the beat changes while playing. Toasts fire
+  // from cursor click cues inside TourCursor (see ui/src/lib/tour-script.ts).
   const applyBeat = useCallback(
     (idx: number) => {
       const beat = TOUR_BEATS[idx];
       if (!beat) return;
       navigate(beat.to);
-      if (beat.toast) {
-        toast.success(beat.toast);
-      }
       if (beat.openGenie) {
         genie.openPanel();
       }
     },
-    [genie, navigate, toast],
+    [genie, navigate],
   );
 
   // Tick loop while playing.
@@ -146,13 +145,14 @@ export function TourProvider({ children }: { children: ReactNode }) {
       beatCount: TOUR_BEATS.length,
       caption: TOUR_BEATS[beatIndex]?.caption ?? "",
       elapsedMs,
+      beatElapsedMs: beatElapsed,
       totalMs: TOUR_TOTAL_MS,
       start,
       pause,
       resume,
       stop,
     }),
-    [state, beatIndex, elapsedMs, start, pause, resume, stop],
+    [state, beatIndex, beatElapsed, elapsedMs, start, pause, resume, stop],
   );
 
   return <TourContext.Provider value={api}>{children}</TourContext.Provider>;

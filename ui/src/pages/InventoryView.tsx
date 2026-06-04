@@ -391,6 +391,7 @@ function POCard({
             icon="truck"
             onClick={() => onRelease(total, qtys)}
             style={{ marginLeft: 8 }}
+            dataTourTarget="inventory.release"
           >
             Release order
           </Btn>

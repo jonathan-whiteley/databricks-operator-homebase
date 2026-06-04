@@ -557,7 +557,13 @@ function ReviewCard({
               flexWrap: "wrap",
             }}
           >
-            <Btn size="sm" variant="primary" icon="send" onClick={() => onReply(draft)}>
+            <Btn
+              size="sm"
+              variant="primary"
+              icon="send"
+              onClick={() => onReply(draft)}
+              dataTourTarget="feedback.send"
+            >
               Send reply
             </Btn>
             <Btn
@@ -573,6 +579,7 @@ function ReviewCard({
               variant="quiet"
               icon="refresh"
               onClick={() => setDraft(aiDraft)}
+              dataTourTarget="feedback.regen"
             >
               Regenerate
             </Btn>

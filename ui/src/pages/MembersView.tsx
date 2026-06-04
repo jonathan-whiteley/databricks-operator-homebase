@@ -564,6 +564,7 @@ export default function MembersView() {
                   setConfirming(true);
                 }}
                 disabled={atRisk.isLoading}
+                dataTourTarget="members.send"
               >
                 Send to {fmtCount(segment.size)} members
               </Btn>
