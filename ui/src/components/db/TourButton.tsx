@@ -107,6 +107,7 @@ export function TourOverlay() {
           display: "flex",
           alignItems: "center",
           gap: 16,
+          pointerEvents: "auto",
         }}
       >
         <span
@@ -122,7 +123,53 @@ export function TourOverlay() {
           {tour.state === "paused" ? "Paused" : "Tour mode"} ·{" "}
           {tour.beatIndex + 1}/{tour.beatCount}
         </span>
-        <span style={{ fontSize: 14, lineHeight: 1.4 }}>{tour.caption}</span>
+        <span style={{ fontSize: 14, lineHeight: 1.4, flex: 1 }}>{tour.caption}</span>
+        {tour.state === "paused" && (
+          <button
+            type="button"
+            data-tour-control
+            onClick={tour.resume}
+            aria-label="Resume tour"
+            style={{
+              height: 28,
+              padding: "0 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "transparent",
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            Resume
+          </button>
+        )}
+        <button
+          type="button"
+          data-tour-control
+          onClick={tour.stop}
+          aria-label="Exit tour"
+          title="Exit tour"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 28,
+            height: 28,
+            borderRadius: 999,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "transparent",
+            color: "#fff",
+            cursor: "pointer",
+            fontSize: 14,
+            lineHeight: 1,
+            fontFamily: "var(--font-sans)",
+          }}
+        >
+          ×
+        </button>
       </div>
     </div>
   );

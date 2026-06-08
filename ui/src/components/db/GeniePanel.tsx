@@ -193,16 +193,97 @@ export default function GeniePanel() {
                       </span>
                     ) : (
                       <>
-                        <div
-                          style={{
-                            fontSize: 13.5,
-                            lineHeight: 1.55,
-                            color: "var(--db-navy-800)",
-                            whiteSpace: "pre-wrap",
-                          }}
-                        >
-                          {msg.text}
-                        </div>
+                        {msg.text && (
+                          <div
+                            style={{
+                              fontSize: 13.5,
+                              lineHeight: 1.55,
+                              color: "var(--db-navy-800)",
+                              whiteSpace: "pre-wrap",
+                            }}
+                          >
+                            {msg.text}
+                          </div>
+                        )}
+                        {msg.table && msg.table.rows.length > 0 && (
+                          <div
+                            style={{
+                              marginTop: msg.text ? 10 : 0,
+                              borderRadius: 8,
+                              border: "1px solid var(--db-gray-lines)",
+                              overflow: "hidden",
+                              fontFamily: "var(--font-mono)",
+                              fontSize: 11.5,
+                            }}
+                          >
+                            <div style={{ overflowX: "auto" }}>
+                              <table
+                                style={{
+                                  width: "100%",
+                                  borderCollapse: "collapse",
+                                  background: "#fff",
+                                }}
+                              >
+                                <thead>
+                                  <tr style={{ background: "var(--db-oat-light)" }}>
+                                    {msg.table.headers.map((h) => (
+                                      <th
+                                        key={h}
+                                        style={{
+                                          textAlign: "left",
+                                          padding: "6px 10px",
+                                          fontWeight: 600,
+                                          color: "var(--db-navy-800)",
+                                          borderBottom: "1px solid var(--db-gray-lines)",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        {h}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {msg.table.rows.map((row, ri) => (
+                                    <tr
+                                      key={ri}
+                                      style={{
+                                        borderTop:
+                                          ri === 0 ? "none" : "1px solid var(--db-gray-lines)",
+                                      }}
+                                    >
+                                      {row.map((cell, ci) => (
+                                        <td
+                                          key={ci}
+                                          style={{
+                                            padding: "6px 10px",
+                                            color: "var(--db-navy-800)",
+                                            whiteSpace: "nowrap",
+                                          }}
+                                        >
+                                          {cell}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            {msg.table.extra_rows > 0 && (
+                              <div
+                                style={{
+                                  padding: "6px 10px",
+                                  background: "var(--db-oat-light)",
+                                  borderTop: "1px solid var(--db-gray-lines)",
+                                  color: "var(--db-navy-400)",
+                                  fontSize: 11,
+                                }}
+                              >
+                                … {msg.table.extra_rows} more rows
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {msg.source && (
                           <div
                             style={{

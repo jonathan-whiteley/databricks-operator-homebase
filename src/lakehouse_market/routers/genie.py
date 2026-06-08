@@ -21,8 +21,15 @@ class AskRequest(BaseModel):
     question: str
 
 
+class AskTable(BaseModel):
+    headers: list[str]
+    rows: list[list[str]]
+    extra_rows: int = 0
+
+
 class AskResponse(BaseModel):
     text: str
+    table: AskTable | None = None
     conversation_id: str
     message_id: str
 
@@ -36,11 +43,15 @@ def _strip_markdown(text: str) -> str:
     return text
 
 
-def _extract_answer(message: dict, conversation_id: str, message_id: str) -> str:
+def _extract_answer(
+    message: dict, conversation_id: str, message_id: str
+) -> tuple[str, AskTable | None]:
     """Genie's reply lives in attachments — `message.content` is the USER prompt
-    echoed back, not Genie's answer. Walk attachments and assemble text from any
-    text attachments, the query.description, and a compact preview of the data."""
+    echoed back, not Genie's answer. Walk attachments and assemble prose from any
+    text attachments + query descriptions; return the FIRST data preview as a
+    structured table so the frontend can render it as an actual <table>."""
     chunks: list[str] = []
+    table: AskTable | None = None
     for att in message.get("attachments") or []:
         t = att.get("text") or {}
         if isinstance(t, dict) and t.get("content"):
@@ -51,27 +62,25 @@ def _extract_answer(message: dict, conversation_id: str, message_id: str) -> str
             if desc:
                 chunks.append(desc)
             attachment_id = att.get("attachment_id")
-            if attachment_id:
+            if attachment_id and table is None:
                 result = fetch_query_result(conversation_id, message_id, attachment_id)
                 sr = result.get("statement_response") or {}
                 rows = (sr.get("result") or {}).get("data_array") or result.get("data_array")
                 cols = (sr.get("manifest") or {}).get("schema", {}).get("columns") or []
                 if rows:
                     headers = [c.get("name", "?") for c in cols]
-                    lines: list[str] = []
-                    if headers:
-                        lines.append(" · ".join(headers))
-                    for row in rows[:5]:
-                        lines.append(" · ".join(_fmt(v) for v in row))
-                    if len(rows) > 5:
-                        lines.append(f"… {len(rows) - 5} more rows")
-                    chunks.append("\n".join(lines))
+                    preview = [[_fmt(v) for v in row] for row in rows[:5]]
+                    table = AskTable(
+                        headers=headers,
+                        rows=preview,
+                        extra_rows=max(0, len(rows) - 5),
+                    )
     # Last-resort fallback: only use message.content if it doesn't look like our prompt
     if not chunks:
         content = (message.get("content") or "").strip()
         if content and not content.startswith("Context: tab="):
             chunks.append(content)
-    return _strip_markdown("\n\n".join(chunks)).strip()
+    return _strip_markdown("\n\n".join(chunks)).strip(), table
 
 
 def _fmt(v) -> str:
@@ -113,7 +122,12 @@ def ask(req: AskRequest):
     else:
         message = poll_message(conv, msg_id)
 
-    text = _extract_answer(message, conv, msg_id)
-    if not text:
+    text, table = _extract_answer(message, conv, msg_id)
+    if not text and table is None:
         text = f"(Genie returned status {message.get('status', 'UNKNOWN')} with no answer)"
-    return {"text": text, "conversation_id": conv, "message_id": msg_id}
+    return {
+        "text": text,
+        "table": table,
+        "conversation_id": conv,
+        "message_id": msg_id,
+    }

@@ -124,7 +124,10 @@ export function TourCursor() {
     }
   }, [tour.state]);
 
-  if (tour.state === "idle") return null;
+  // Hide the cursor + highlight ring whenever the tour isn't actively
+  // playing — paused means the user has taken control, so the decorative
+  // cursor should get out of their way until they hit Resume.
+  if (tour.state !== "playing") return null;
 
   return (
     <>

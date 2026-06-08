@@ -28,10 +28,17 @@ const TAB_ID_FOR_PATH: Record<string, string> = {
 
 export type GenieRole = "user" | "assistant";
 
+export type GenieTable = {
+  headers: string[];
+  rows: string[][];
+  extra_rows: number;
+};
+
 export type GenieMsg = {
   id: number;
   role: GenieRole;
   text: string;
+  table?: GenieTable;
   loading?: boolean;
   source?: string;
 };
@@ -51,6 +58,7 @@ const Ctx = createContext<GeniePanelApi | null>(null);
 type AskResponse = {
   answer?: string;
   text?: string;
+  table?: GenieTable;
   source?: string;
 };
 
@@ -95,7 +103,13 @@ export function GeniePanelProvider({ children }: { children: ReactNode }) {
         setConversation((prev) =>
           prev.map((m) =>
             m.id === placeholder.id
-              ? { ...m, loading: false, text: answer, source: data.source }
+              ? {
+                  ...m,
+                  loading: false,
+                  text: answer,
+                  table: data.table,
+                  source: data.source,
+                }
               : m,
           ),
         );
