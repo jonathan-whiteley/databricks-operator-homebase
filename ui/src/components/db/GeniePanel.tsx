@@ -22,7 +22,7 @@ const SUGGESTIONS = [
 type Store = { store_id: number; store_name: string; city: string; state: string };
 
 export default function GeniePanel() {
-  const { open, closePanel, conversation, ask, busy } = useGeniePanel();
+  const { open, closePanel, conversation, ask, busy, resetConversation } = useGeniePanel();
   const [storeId] = useStoreId();
   const { data: stores } = useApi<Store[]>(["stores"], "/stores");
   const num = `#${String(storeId).padStart(3, "0")}`;
@@ -108,6 +108,34 @@ export default function GeniePanel() {
               Genie · grounded in {grounded} data
             </div>
           </div>
+          {conversation.length > 0 && (
+            <button
+              type="button"
+              onClick={resetConversation}
+              disabled={busy}
+              aria-label="Start new chat"
+              title="New chat"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                height: 28,
+                padding: "0 11px",
+                borderRadius: 999,
+                border: "1px solid rgba(255,255,255,0.16)",
+                background: "transparent",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 500,
+                cursor: busy ? "not-allowed" : "pointer",
+                opacity: busy ? 0.5 : 1,
+                fontFamily: "var(--font-sans)",
+              }}
+            >
+              <Icon name="plus" size={12} color="#fff" />
+              New chat
+            </button>
+          )}
           <button
             type="button"
             onClick={closePanel}

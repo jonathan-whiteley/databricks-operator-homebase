@@ -15,6 +15,7 @@ import { Btn, Icon, LEVEL, PATHS } from "@/components/db";
 import type { IconName, PillLevel } from "@/components/db";
 import { useApi } from "@/lib/api";
 import { useGeniePanel } from "@/state/genie-panel";
+import { useStoreId } from "@/state/store";
 
 type Module = "labor" | "inventory" | "equipment" | "members" | "feedback";
 
@@ -378,7 +379,12 @@ function RadialHub({
 export default function TodayView() {
   const navigate = useNavigate();
   const { openPanel } = useGeniePanel();
-  const { data, isLoading } = useApi<TodayBrief>(["today-brief"], "/today/brief");
+  const [storeId] = useStoreId();
+  const { data, isLoading } = useApi<TodayBrief>(
+    ["today-brief", storeId],
+    "/today/brief",
+    { store_id: storeId },
+  );
 
   if (isLoading || !data) {
     return <TodaySkeleton />;

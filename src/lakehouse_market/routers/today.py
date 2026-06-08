@@ -138,10 +138,9 @@ def _outstanding(store_id: int, anchor: str) -> Outstanding:
 
 
 @router.get("/brief", response_model=TodayBrief)
-def brief() -> TodayBrief:
+def brief(store_id: int = DEMO_STORE_ID) -> TodayBrief:
     settings = get_settings()
     anchor = get_anchor_date()
-    store_id = DEMO_STORE_ID
 
     history = _sales_history(store_id, anchor)
     today_forecast = history[-1] if history else 0.0

@@ -181,7 +181,7 @@ function BeatTable({ beats }: { beats: Beat[] }) {
       >
         <thead>
           <tr style={{ background: "var(--db-gray-soft, #f5f6f8)" }}>
-            <Th width={92}>Time</Th>
+            <Th width={108}>Time</Th>
             <Th width={140}>Tab</Th>
             <Th>Click</Th>
             <Th>Say</Th>
@@ -203,6 +203,7 @@ function BeatTable({ beats }: { beats: Beat[] }) {
                     fontSize: 12.5,
                     color: "var(--db-navy-800)",
                     fontWeight: 500,
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {b.time}

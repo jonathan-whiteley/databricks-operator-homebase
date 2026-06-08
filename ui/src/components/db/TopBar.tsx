@@ -1,8 +1,8 @@
 // ui/src/components/db/TopBar.tsx
 //
 // 56px white bar across the top of the main column. Shows the active store
-// breadcrumb, a live-ish clock, the lava "Ask Genie" button, and a bell with
-// a red dot for outstanding alerts (cosmetic for now).
+// breadcrumb, a live-ish clock, the Tour control, and the lava "Ask Genie"
+// button.
 import { useEffect, useState } from "react";
 
 import { useApi } from "@/lib/api";
@@ -101,33 +101,6 @@ export default function TopBar() {
         >
           Ask Genie
         </Btn>
-        <button
-          type="button"
-          className="hb-iconbtn"
-          style={{
-            position: "relative",
-            background: "transparent",
-            border: 0,
-            cursor: "pointer",
-            display: "flex",
-            padding: 4,
-          }}
-          aria-label="Notifications"
-        >
-          <Icon name="bell" size={19} color="var(--db-gray-text)" />
-          <span
-            style={{
-              position: "absolute",
-              top: 1,
-              right: 1,
-              width: 7,
-              height: 7,
-              borderRadius: 999,
-              background: "var(--db-lava-600)",
-              border: "1.5px solid #fff",
-            }}
-          />
-        </button>
       </div>
     </header>
   );

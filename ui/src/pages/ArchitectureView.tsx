@@ -213,7 +213,6 @@ const HEADERS: Node[] = [
   header("hdr-uc", 320, "Lakehouse · Unity Catalog"),
   header("hdr-compute", 640, "Compute · Serve"),
   header("hdr-app", 960, "Application"),
-  header("hdr-write", 1260, "Operational · Write-back"),
 ];
 
 function header(id: string, x: number, label: string): Node {
@@ -248,18 +247,15 @@ const INITIAL_NODES: Node[] = [
     "uc",
   ),
 
-  // Col 3 — Compute / ML / Genie
+  // Col 3 — Compute / Serve (includes Lakebase Postgres as the operational store)
   card("sql-warehouse", 640, 60, "SQL Warehouse", "Serverless · auto-stop 120m", "spark", "warehouse"),
-  card("model-serving", 640, 200, "Model Serving", "lhm-labor-recommender · ElasticNet", "labor", "ml"),
-  card("fm", 640, 340, "Foundation Models", "Claude Sonnet 4.6 · Llama 3.3", "spark", "ml"),
-  card("genie-space", 640, 480, "Genie Space", "lhm-ops-assistant · all 21 tables", "spark", "genie"),
+  card("model-serving", 640, 180, "Model Serving", "lhm-labor-recommender · ElasticNet", "labor", "ml"),
+  card("fm", 640, 300, "Foundation Models", "Claude Sonnet 4.6 · Llama 3.3", "spark", "ml"),
+  card("genie-space", 640, 420, "Genie Space", "lhm-ops-assistant · all 21 tables", "spark", "genie"),
+  card("lakebase", 640, 560, "Lakebase Postgres", "lhm_app · 5 write tables", "diagram", "lakebase"),
 
   // Col 4 — Databricks App (combined React + FastAPI)
   card("app", 960, 260, "Databricks App", "React + FastAPI · 8 routers", "screen", "app"),
-
-  // Col 5 — Lakebase write-back + Manager (stacked)
-  card("lakebase", 1260, 180, "Lakebase Postgres", "lhm_app · 5 write tables", "diagram", "lakebase"),
-  card("manager", 1260, 340, "Store Manager", "Maya · Store #001", "user", "user"),
 ];
 
 function card(
@@ -335,13 +331,13 @@ const INITIAL_EDGES: Edge[] = [
   edge("fm", "app", { color: LAYER.ml.fg, animated: true }),
   edge("genie-space", "app", { color: LAYER.genie.fg, animated: true }),
 
-  // App ↔ Lakebase + App → Manager
+  // App → Lakebase write path. App sits to the right of the Compute/Serve
+  // column; the OAuth + write arrow flows leftward into Lakebase Postgres.
   edge("app", "lakebase", {
     color: LAYER.lakebase.fg,
     label: "OAuth · writes",
     animated: true,
   }),
-  edge("app", "manager", { color: "#475569" }),
 
   // Lakebase ↔ Unity Catalog: Lakebase Sync auto-mirrors Lakebase Postgres
   // tables into governed Delta tables in UC, so app writes flow back into
@@ -483,7 +479,6 @@ function LegendFooter() {
     { key: "genie", label: "Genie" },
     { key: "app", label: "Databricks App" },
     { key: "lakebase", label: "Lakebase" },
-    { key: "user", label: "User" },
   ];
   const bands = [
     "Databricks Workflows · lhm-init job",

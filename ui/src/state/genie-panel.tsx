@@ -50,6 +50,7 @@ type GeniePanelApi = {
   togglePanel: () => void;
   conversation: GenieMsg[];
   ask: (text: string) => Promise<void>;
+  resetConversation: () => void;
   busy: boolean;
 };
 
@@ -129,9 +130,23 @@ export function GeniePanelProvider({ children }: { children: ReactNode }) {
     [nextId, storeId, location.pathname],
   );
 
+  const resetConversation = useCallback(() => {
+    setConversation([]);
+    idRef.current = 0;
+  }, []);
+
   const value = useMemo<GeniePanelApi>(
-    () => ({ open, openPanel, closePanel, togglePanel, conversation, ask, busy }),
-    [open, openPanel, closePanel, togglePanel, conversation, ask, busy],
+    () => ({
+      open,
+      openPanel,
+      closePanel,
+      togglePanel,
+      conversation,
+      ask,
+      resetConversation,
+      busy,
+    }),
+    [open, openPanel, closePanel, togglePanel, conversation, ask, resetConversation, busy],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -280,8 +280,15 @@ html, body {
 .hb-card-hover:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 
 .hb-nav:hover    { background: var(--db-navy-700) !important; color: #fff !important; }
-.hb-search:hover { background: var(--db-navy-600) !important; }
 .hb-iconbtn:hover{ background: var(--db-oat-medium); border-radius: 6px; }
+
+/* Leaflet creates its own stacking context with z-index 400+; pin the map
+   container below the Genie panel (z-index: 150) so the slide-over isn't
+   covered by the map tiles on the Loyalty view. */
+.leaflet-container,
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom { z-index: 1 !important; }
 .hb-suggest:hover{ background: var(--db-oat-medium) !important; border-color: var(--db-navy-300) !important; }
 
 @keyframes hb-toast-in {
