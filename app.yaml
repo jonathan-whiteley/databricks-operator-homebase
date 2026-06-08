@@ -8,30 +8,41 @@ command:
 
 env:
   - name: LHM_CATALOG
-    value: jdub_demo
+    value: retail_consumer_goods
   - name: LHM_SCHEMA
-    value: lakehouse_market
+    value: tth_ops_homebase
   - name: DATABRICKS_WAREHOUSE_ID
-    # Matches the warehouse-default resource binding (Serverless Starter).
-    value: "0168e23e24e6ae10"
+    # Injected from the `warehouse-default` sql_warehouse binding in resources/app.yml.
+    valueFrom: warehouse-default
   - name: LABOR_ENDPOINT
-    # DAB dev-mode prefixes resource names; production target would drop the prefix.
-    value: dev_jonathan_whiteley_lhm-labor-recommender
+    # In dev-mode targets, DAB prefixes serving endpoints (dev_<user>_lhm-labor-recommender);
+    # scripts/setup.sh rewrites this value for dev targets after deploy. For production
+    # targets (e.g. `dais`) the canonical name is used as-is.
+    value: lhm-labor-recommender
   - name: FM_ENDPOINT
     value: databricks-claude-sonnet-4-6
   - name: GENIE_SPACE_ID
-    # Created by notebooks/06_ensure_genie_space.py
-    value: "01f15c9315b117008c9d056472ecdf03"
+    # Populated by scripts/setup.sh after notebooks/06_ensure_genie_space.py runs.
+    value: "01f160fd844418bcab89a57842a73f59"
   - name: DEMO_ANCHOR_DATE
     # Synthetic data window ends 2025-10-30; queries use this as "today".
     value: "2025-10-30"
   - name: LAKEBASE_INSTANCE
     value: "lakehouse-market-app-db"
-  - name: LAKEBASE_HOST
-    # read_write_dns from the Lakebase instance
-    value: "ep-proud-sea-d1ojxh33.database.us-west-2.cloud.databricks.com"
   - name: LAKEBASE_DB
     value: "databricks_postgres"
+  - name: LAKEBASE_HOST
+    # read_write_dns from the Lakebase instance. Replace per workspace; the
+    # commented-out database resource binding in resources/app.yml normally
+    # injects this as PGHOST, but db-dais-2026 doesn't permit the binding.
+    value: "ep-aged-dawn-d23bdxwf.database.us-east-1.cloud.databricks.com"
   - name: LAKEBASE_USER
-    # App SP client_id — Lakebase uses the SP identity + a minted JWT as password
-    value: "5faf2ed0-5391-4a91-94d6-396af6139903"
+    # App SP client_id. Matches the Postgres role name; auth is via the static
+    # password below since the deployer SP can't grant the App SP membership in
+    # `databricks_superuser` (which is what JWT auth requires). The instance was
+    # patched to enable_pg_native_login=true to support this fallback.
+    value: "d2117218-74ed-4c4b-b39c-35ce96b5b9bf"
+  - name: LAKEBASE_PASSWORD
+    # Sourced from the `lakebase-pw` secret resource binding in resources/app.yml,
+    # which points at the lakehouse-market scope's lakebase_password key.
+    valueFrom: lakebase-pw

@@ -12,8 +12,17 @@ resources:
           sql_warehouse:
             id: ${var.warehouse_id}
             permission: CAN_USE
-        - name: homebase-db
-          database:
-            instance_name: ${var.lakebase_instance}
-            database_name: databricks_postgres
-            permission: CAN_CONNECT_AND_CREATE
+        # Lakebase database resource binding intentionally omitted: the deployer
+        # SP on db-dais-2026 lacks workspace-admin / instance-grant authority to
+        # bind a `database` resource (deploy returns "User does not have
+        # permission to grant permissions for added resource"). Instead the App
+        # SP is granted CAN_MANAGE on the instance via permissions update, a
+        # Postgres role is provisioned for it manually, and connection info is
+        # wired via LAKEBASE_HOST / LAKEBASE_USER env vars in app.yaml. The
+        # static Postgres password is held in the lakebase-market secret scope
+        # and injected as LAKEBASE_PASSWORD via the binding below.
+        - name: lakebase-pw
+          secret:
+            scope: lakehouse-market
+            key: lakebase_password
+            permission: READ
