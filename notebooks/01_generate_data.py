@@ -6,14 +6,15 @@
 # COMMAND ----------
 import dbldatagen as dg
 import numpy as np
+from datetime import date
 from pyspark.sql import functions as F
 from pyspark.sql.types import *
 from mimesis import Address, Person
 from _gen_lib import DAYPART_LABELS, SEED, STORE_COUNT
 import random
 
-CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "jdub_demo"  # type: ignore
-SCHEMA  = "lakehouse_market"
+CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "retail_consumer_goods"  # type: ignore
+SCHEMA  = dbutils.widgets.get("schema")  if "schema"  in dbutils.widgets.getAll() else "tth_ops_homebase"  # type: ignore
 spark.sql(f"USE CATALOG {CATALOG}")
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
 spark.sql(f"USE SCHEMA {SCHEMA}")
@@ -48,23 +49,28 @@ times = [(h,) for h in range(24)]
 spark.createDataFrame(times, ["hour"]).write.mode("overwrite").saveAsTable("dim_time")
 
 # COMMAND ----------
-# Labor: daily_sales_forecast (forecast per store per day per day-part)
-import dbldatagen as dg
+# Labor: daily_sales_forecast (forecast per store per day per day-part).
+# CROSS JOIN of store × date × daypart so every tuple is present exactly once;
+# revenue/transactions are deterministic-by-seed random within plausible ranges.
 from pyspark.sql import functions as F
 
 base_date = "2025-08-01"
-days = 90
-fc = (
-    dg.DataGenerator(spark, rows=STORE_COUNT * days * 4, partitions=4)
-    .withIdOutput()
-    .withColumn("store_id", "int", minValue=1, maxValue=STORE_COUNT, random=True)
-    .withColumn("date", "date", begin=base_date, end="2025-10-29")
-    .withColumn("daypart", "string", values=["Breakfast", "Lunch", "Dinner", "Late"], random=True)
-    .withColumn("forecast_revenue", "double", minValue=300, maxValue=5500, random=True)
-    .withColumn("forecast_transactions", "int", minValue=40, maxValue=900, random=True)
-    .build()
+end_date = "2025-10-29"
+days = (date.fromisoformat(end_date) - date.fromisoformat(base_date)).days + 1
+DAYPARTS = ["Breakfast", "Lunch", "Dinner", "Late"]
+
+stores_df = spark.range(1, STORE_COUNT + 1).select(F.col("id").cast("int").alias("store_id"))
+dates_df = spark.sql(
+    f"SELECT explode(sequence(to_date('{base_date}'), to_date('{end_date}'), interval 1 day)) AS date"
 )
-fc.drop("id").write.mode("overwrite").saveAsTable("daily_sales_forecast")
+dayparts_df = spark.createDataFrame([(d,) for d in DAYPARTS], "daypart string")
+
+fc = (
+    stores_df.crossJoin(dates_df).crossJoin(dayparts_df)
+    .withColumn("forecast_revenue", F.round(F.rand(SEED) * (5500 - 300) + 300, 2))
+    .withColumn("forecast_transactions", (F.rand(SEED + 1) * (900 - 40) + 40).cast("int"))
+)
+fc.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("daily_sales_forecast")
 
 # hourly_transactions for last 30d
 ht = (
