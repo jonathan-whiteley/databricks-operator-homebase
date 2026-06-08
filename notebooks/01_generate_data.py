@@ -20,25 +20,52 @@ spark.sql(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
 spark.sql(f"USE SCHEMA {SCHEMA}")
 
 # COMMAND ----------
-# Stores dim — Mimesis for realistic addresses
+# Stores dim.
+# First 12 stores are pinned to real Bay Area cities (lat/lon roughly accurate)
+# so the DAIS-Summit-in-SF demo defaults to a local store and the Loyalty map
+# centres on the Bay. Remaining stores are randomized across CA so the rest of
+# the dataset still looks like a regional QSR chain.
 addr = Address("en"); per = Person("en")
 random.seed(SEED)
+
+BAY_AREA = [
+    ("San Francisco",   "CA", "94103", 37.7749, -122.4194),
+    ("Oakland",         "CA", "94612", 37.8044, -122.2712),
+    ("Berkeley",        "CA", "94704", 37.8716, -122.2727),
+    ("San Jose",        "CA", "95113", 37.3382, -121.8863),
+    ("Palo Alto",       "CA", "94301", 37.4419, -122.1430),
+    ("Mountain View",   "CA", "94041", 37.3861, -122.0839),
+    ("Daly City",       "CA", "94014", 37.7058, -122.4622),
+    ("Redwood City",    "CA", "94063", 37.4852, -122.2364),
+    ("Fremont",         "CA", "94538", 37.5485, -121.9886),
+    ("Hayward",         "CA", "94541", 37.6688, -122.0808),
+    ("San Mateo",       "CA", "94401", 37.5630, -122.3255),
+    ("Sunnyvale",       "CA", "94086", 37.3688, -122.0363),
+]
+
 stores_rows = []
 for i in range(1, STORE_COUNT + 1):
-    lat = 37.0 + random.uniform(-3, 3)   # CA-ish anchor for the demo
-    lon = -119.0 + random.uniform(-3, 3)
+    if i <= len(BAY_AREA):
+        city, state, zip_code, lat, lon = BAY_AREA[i - 1]
+    else:
+        city = addr.city()
+        state = "CA"
+        zip_code = addr.zip_code()
+        lat = 37.0 + random.uniform(-3, 3)
+        lon = -119.0 + random.uniform(-3, 3)
     stores_rows.append({
         "store_id": i,
         "store_name": f"Lakehouse Market #{i:03d}",
-        "city": addr.city(),
-        "state": addr.state(abbr=True),
-        "zip": addr.zip_code(),
+        "city": city,
+        "state": state,
+        "zip": zip_code,
         "lat": float(lat),
         "lon": float(lon),
         "manager_name": per.full_name(),
         "open_date": addr.calling_code(),  # placeholder; replaced below
     })
-spark.createDataFrame(stores_rows).drop("open_date").write.mode("overwrite").saveAsTable("stores")
+spark.createDataFrame(stores_rows).drop("open_date").write.mode("overwrite") \
+    .option("overwriteSchema", "true").saveAsTable("stores")
 
 # COMMAND ----------
 from datetime import date, timedelta
@@ -253,12 +280,27 @@ spark.sql("CREATE OR REPLACE TABLE review_sentiment (review_id BIGINT, sentiment
 spark.sql("CREATE OR REPLACE TABLE review_topics (review_id BIGINT, topic STRING, weight DOUBLE)")
 
 # COMMAND ----------
-# Equipment — 5 categories per store, ~5 units each = ~625 units
+# Equipment — 5 categories per store, ~5 units each = ~625 units.
+# Each category has its own realistic temp target (so the EquipmentView's
+# "drifted +XX°F over the past N readings" narration reads correctly instead
+# of comparing an Oven's 350°F to a refrigeration 38°F target).
 eq_categories = ["Oven", "Fryer", "Refrigeration", "Espresso", "POS"]
+TEMP_PROFILE = {
+    # category: (target_min, target_max, drift_high)
+    # `target_*` is the normal-operation band; `drift_high` is a plausible
+    # alert-level temperature for that asset (used by the scoring notebook
+    # and rendered in EquipmentView's alert hero).
+    "Oven":          (340.0, 360.0, 410.0),
+    "Fryer":         (345.0, 365.0, 395.0),
+    "Refrigeration": (34.0,   40.0,  60.0),
+    "Espresso":      (195.0, 205.0, 225.0),
+    "POS":           (60.0,   80.0,  95.0),   # ambient room temp; no real thermal alert
+}
 eq_rows = []
 unit = 0
 for sid in range(1, STORE_COUNT + 1):
     for cat in eq_categories:
+        target_min, target_max, _drift_high = TEMP_PROFILE[cat]
         for _ in range(random.randint(4, 6)):
             unit += 1
             eq_rows.append({
@@ -268,20 +310,39 @@ for sid in range(1, STORE_COUNT + 1):
                 "model": f"{cat}-{random.randint(1000,9999)}",
                 "install_date": str(date(2022, 1, 1) + timedelta(days=random.randint(0, 1000))),
                 "runtime_hours": random.randint(100, 9000),
+                "target_temp_min": target_min,
+                "target_temp_max": target_max,
             })
-spark.createDataFrame(eq_rows).write.mode("overwrite").saveAsTable("equipment")
+spark.createDataFrame(eq_rows).write.mode("overwrite") \
+    .option("overwriteSchema", "true").saveAsTable("equipment")
 
-# equipment_telemetry — 14 days of hourly readings per unit (sampled to keep size sane)
-telem = (
-    dg.DataGenerator(spark, rows=len(eq_rows) * 14 * 6, partitions=8)
-    .withColumn("equipment_id", "int", minValue=1, maxValue=unit, random=True)
-    .withColumn("ts", "timestamp", begin="2025-10-15 00:00:00", end="2025-10-29 23:00:00")
-    .withColumn("temperature", "double", minValue=20, maxValue=200, random=True)
-    .withColumn("vibration", "double", minValue=0.1, maxValue=8.0, random=True)
-    .withColumn("runtime_hours_delta", "double", minValue=0.0, maxValue=1.0, random=True)
-    .build()
-)
-telem.write.mode("overwrite").saveAsTable("equipment_telemetry")
+# equipment_telemetry — 14 days of 6 readings/day per unit, with category-aware
+# temperatures. ~95% of rows hold within target band; ~5% drift to the high
+# alert range to feed the RUL scoring notebook.
+import math as _math
+telemetry_rows = []
+for eq in eq_rows:
+    eid = eq["equipment_id"]
+    cat = eq["category"]
+    target_min, target_max, drift_high = TEMP_PROFILE[cat]
+    target_mid = (target_min + target_max) / 2.0
+    for d in range(14):
+        for h in range(0, 24, 4):  # every 4 hours
+            ts = f"2025-10-{15 + d:02d} {h:02d}:00:00"
+            # 5% chance this unit hits drift on this reading
+            if random.random() < 0.05:
+                temp = drift_high - random.uniform(0, drift_high - target_max)
+            else:
+                temp = target_mid + random.uniform(-1, 1) * (target_max - target_min) / 2.0
+            telemetry_rows.append({
+                "equipment_id": eid,
+                "ts": ts,
+                "temperature": round(temp, 1),
+                "vibration": round(random.uniform(0.1, 8.0), 2),
+                "runtime_hours_delta": round(random.uniform(0.0, 1.0), 2),
+            })
+spark.createDataFrame(telemetry_rows).write.mode("overwrite") \
+    .option("overwriteSchema", "true").saveAsTable("equipment_telemetry")
 
 # work_orders (historical, pre-app)
 wo = (

@@ -54,6 +54,8 @@ type Risk = {
   health_score: number;
   rul_days: number;
   predicted_failure_date: string;
+  target_temp_min: number;
+  target_temp_max: number;
 };
 
 type TelemetryRow = {
@@ -316,9 +318,9 @@ function CoolerAlert({
   const [sel, setSel] = useState<string>(recId);
   const slot = SERVICE_SLOTS.find((s) => s.id === sel) ?? SERVICE_SLOTS[0];
 
-  // The headline summary line in the template references a hard-coded
-  // "42°F" cooler scenario. With live data we compose a similar one-liner:
-  // current temperature, target band (36-38°F), and drift over the window.
+  // Compose a one-liner from live telemetry: current temperature, the unit's
+  // category-specific target band (read from equipment.target_temp_min/max),
+  // and drift over the window.
   const latest = pts.length > 0 ? pts[pts.length - 1] : null;
   const first = pts.length > 0 ? pts[0] : null;
   const drift =
@@ -329,6 +331,10 @@ function CoolerAlert({
       : drift > 0
         ? `drifted +${drift.toFixed(1)}°F over the past ${pts.length} readings`
         : `drifted ${drift.toFixed(1)}°F over the past ${pts.length} readings`;
+  const targetBand =
+    unit && unit.target_temp_min != null && unit.target_temp_max != null
+      ? `${Math.round(unit.target_temp_min)}–${Math.round(unit.target_temp_max)}°F`
+      : null;
 
   return (
     <div
@@ -393,8 +399,10 @@ function CoolerAlert({
                 Holding{" "}
                 <strong style={{ color: "#fff" }}>
                   {latest != null ? `${latest.toFixed(1)}°F` : "—"}
-                </strong>{" "}
-                against a 36–38°F target — {driftLabel}. Predicted failure{" "}
+                </strong>
+                {targetBand ? <> against a {targetBand} target</> : null}
+                {" — "}
+                {driftLabel}. Predicted failure{" "}
                 {unit.predicted_failure_date} · {unit.rul_days}d RUL.
               </>
             ) : (

@@ -16,12 +16,15 @@ class AtRiskUnit(BaseModel):
     health_score: float
     rul_days: int
     predicted_failure_date: str
+    target_temp_min: float
+    target_temp_max: float
 
 
 @router.get("/at-risk", response_model=list[AtRiskUnit])
 def at_risk(store_id: int, limit: int = 20):
     return fetch_all(
         """SELECT e.equipment_id, e.category, e.model, e.runtime_hours,
+                  e.target_temp_min, e.target_temp_max,
                   rp.health_score, rp.rul_days, cast(rp.predicted_failure_date AS string) AS predicted_failure_date
            FROM equipment e JOIN rul_predictions rp USING (equipment_id)
            WHERE e.store_id = :store_id
