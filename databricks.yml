@@ -8,10 +8,10 @@ bundle:
 variables:
   catalog:
     description: Unity Catalog catalog name (must be writable by deployer)
-    default: jdub_demo
+    default: retail_consumer_goods
   schema:
     description: Schema inside the catalog
-    default: lakehouse_market
+    default: tth_ops_homebase
   app_name:
     description: Databricks App name
     default: lakehouse-market-homebase
@@ -19,8 +19,8 @@ variables:
     description: Lakebase (Postgres on Databricks) instance name
     default: lakehouse-market-app-db
   warehouse_id:
-    description: SQL warehouse id the app should read from (Serverless Starter Warehouse by default)
-    default: "0168e23e24e6ae10"
+    description: SQL warehouse id the app should read from (resolved by scripts/setup.sh when empty)
+    default: ""
   user_email:
     description: Deployer email (run-as for jobs + app)
     default: jonathan.whiteley@databricks.com
@@ -45,3 +45,15 @@ targets:
       profile: DEFAULT
     run_as:
       user_name: ${var.user_email}
+
+  dais:
+    mode: production
+    workspace:
+      profile: dais
+      host: https://db-dais-2026.cloud.databricks.com
+      root_path: /Workspace/Users/rcg-dais2026@databricks-events.com/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      user_name: rcg-dais2026@databricks-events.com
+    variables:
+      catalog: retail_consumer_goods
+      schema: tth_ops_homebase

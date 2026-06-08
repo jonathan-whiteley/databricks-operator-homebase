@@ -12,6 +12,7 @@ resources:
             notebook_path: ../notebooks/01_generate_data.py
             base_parameters:
               catalog: ${var.catalog}
+              schema: ${var.schema}
         - task_key: train_labor
           depends_on:
             - task_key: gen_data
@@ -19,6 +20,7 @@ resources:
             notebook_path: ../notebooks/02_train_labor_model.py
             base_parameters:
               catalog: ${var.catalog}
+              schema: ${var.schema}
         - task_key: score_loyalty
           depends_on:
             - task_key: gen_data
@@ -26,6 +28,7 @@ resources:
             notebook_path: ../notebooks/03_score_loyalty.py
             base_parameters:
               catalog: ${var.catalog}
+              schema: ${var.schema}
         - task_key: score_equipment
           depends_on:
             - task_key: gen_data
@@ -33,6 +36,7 @@ resources:
             notebook_path: ../notebooks/04_score_equipment.py
             base_parameters:
               catalog: ${var.catalog}
+              schema: ${var.schema}
         - task_key: label_reviews
           depends_on:
             - task_key: gen_data
@@ -40,6 +44,19 @@ resources:
             notebook_path: ../notebooks/05_label_reviews.py
             base_parameters:
               catalog: ${var.catalog}
+              schema: ${var.schema}
         - task_key: ensure_genie_space
+          depends_on:
+            # All 21 UC tables must exist before the space's table list can resolve;
+            # churn_predictions, rul_predictions, review_sentiment/_topics are populated
+            # by the scoring + labeling tasks (not by gen_data alone).
+            - task_key: gen_data
+            - task_key: score_loyalty
+            - task_key: score_equipment
+            - task_key: label_reviews
           notebook_task:
             notebook_path: ../notebooks/06_ensure_genie_space.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              warehouse_id: ${var.warehouse_id}

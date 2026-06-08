@@ -27,9 +27,28 @@ from uuid import uuid4
 
 from databricks.sdk import WorkspaceClient
 
-CATALOG = "jdub_demo"
-SCHEMA = "lakehouse_market"
-WAREHOUSE_ID = "0168e23e24e6ae10"
+# Widgets (CLI / job parameters) — fall back to env or the demo defaults.
+try:
+    dbutils.widgets.text("catalog", "", "Unity Catalog catalog")
+    dbutils.widgets.text("schema", "", "Schema within catalog")
+    dbutils.widgets.text("warehouse_id", "", "SQL warehouse id for the Genie space")
+except NameError:
+    pass
+
+def _widget(name: str, default: str) -> str:
+    try:
+        v = dbutils.widgets.get(name).strip()
+        if v:
+            return v
+    except Exception:
+        pass
+    return os.getenv(name.upper(), default)
+
+CATALOG = _widget("catalog", "retail_consumer_goods")
+SCHEMA = _widget("schema", "tth_ops_homebase")
+WAREHOUSE_ID = _widget("warehouse_id", "")
+if not WAREHOUSE_ID:
+    raise RuntimeError("warehouse_id widget / WAREHOUSE_ID env must be set for Genie space creation")
 TITLE = "lhm-ops-assistant"
 DESCRIPTION = (
     "Operations assistant for Lakehouse Market store managers. Answers questions about "

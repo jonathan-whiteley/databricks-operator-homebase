@@ -9,9 +9,10 @@ from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 import json, time
 w = WorkspaceClient()
 
-CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "jdub_demo"
+CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "retail_consumer_goods"
+SCHEMA  = dbutils.widgets.get("schema")  if "schema"  in dbutils.widgets.getAll() else "tth_ops_homebase"
 spark.sql(f"USE CATALOG {CATALOG}")
-spark.sql("USE SCHEMA lakehouse_market")
+spark.sql(f"USE SCHEMA {SCHEMA}")
 
 # Generate realistic review text for each review_id, then label sentiment + topics
 # (placeholder rows have text="placeholder-review-{id}")

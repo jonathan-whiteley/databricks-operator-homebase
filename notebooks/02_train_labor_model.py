@@ -12,9 +12,10 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 import pandas as pd
 
-CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "jdub_demo"
+CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "retail_consumer_goods"
+SCHEMA  = dbutils.widgets.get("schema")  if "schema"  in dbutils.widgets.getAll() else "tth_ops_homebase"
 spark.sql(f"USE CATALOG {CATALOG}")
-spark.sql("USE SCHEMA lakehouse_market")
+spark.sql(f"USE SCHEMA {SCHEMA}")
 
 # Build training set: forecast_revenue + daypart → headcount (synthetic ground truth)
 df = spark.sql("""
@@ -39,7 +40,7 @@ with mlflow.start_run() as run:
     mlflow.sklearn.log_model(
         pipe,
         artifact_path="model",
-        registered_model_name=f"{CATALOG}.lakehouse_market.lhm_labor_recommender",
+        registered_model_name=f"{CATALOG}.{SCHEMA}.lhm_labor_recommender",
         signature=signature,
         input_example=X.head(2),
     )

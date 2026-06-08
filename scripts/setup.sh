@@ -23,8 +23,10 @@
 #  10. Tails the app status until RUNNING and prints the URL
 #
 # Usage:
-#   scripts/setup.sh                 # full deploy
-#   WAREHOUSE_ID=abc scripts/setup.sh  # pin a specific warehouse
+#   scripts/setup.sh                            # default DAB target, default catalog/schema
+#   DAB_TARGET=dais scripts/setup.sh            # deploy to the `dais` DAB target
+#   LHM_CATALOG=foo LHM_SCHEMA=bar scripts/setup.sh   # override catalog/schema
+#   WAREHOUSE_ID=abc scripts/setup.sh           # pin a specific warehouse
 
 set -euo pipefail
 
@@ -34,6 +36,36 @@ cd "$(dirname "$0")/.."
 log() { printf "\n\033[1;34m▶ %s\033[0m\n" "$*"; }
 warn() { printf "\033[1;33m⚠ %s\033[0m\n" "$*"; }
 fail() { printf "\033[1;31m✗ %s\033[0m\n" "$*"; exit 1; }
+
+# ---------- 0. target + catalog/schema ----------
+DAB_TARGET="${DAB_TARGET:-default}"
+TARGET_ARGS=(--target "$DAB_TARGET")
+
+# Resolve the CLI profile for raw `databricks` commands (anything outside `databricks bundle`).
+# `databricks bundle` reads the target's workspace.profile from databricks.yml directly; everything
+# else (warehouses list, apps get, sql/statements, genie list-spaces, etc.) honours $DATABRICKS_CONFIG_PROFILE.
+DAB_PROFILE=$(databricks bundle summary --target "$DAB_TARGET" -o json 2>/dev/null \
+  | jq -r '.workspace.profile // empty' 2>/dev/null || true)
+if [[ -n "$DAB_PROFILE" ]]; then
+  export DATABRICKS_CONFIG_PROFILE="$DAB_PROFILE"
+  log "Using CLI profile: $DAB_PROFILE"
+fi
+
+# Target mode (development vs production) controls dev_user_ prefixing of serving endpoints.
+TARGET_MODE=$(databricks bundle summary --target "$DAB_TARGET" -o json 2>/dev/null \
+  | jq -r '.bundle.mode // "development"' 2>/dev/null || echo "development")
+
+# Catalog/schema resolution: env wins; else read DAB var defaults for this target.
+if [[ -z "${LHM_CATALOG:-}" ]]; then
+  LHM_CATALOG=$(databricks bundle summary --target "$DAB_TARGET" -o json 2>/dev/null \
+    | jq -r '.variables.catalog.value // .variables.catalog.default // "retail_consumer_goods"' || echo "retail_consumer_goods")
+fi
+if [[ -z "${LHM_SCHEMA:-}" ]]; then
+  LHM_SCHEMA=$(databricks bundle summary --target "$DAB_TARGET" -o json 2>/dev/null \
+    | jq -r '.variables.schema.value // .variables.schema.default // "tth_ops_homebase"' || echo "tth_ops_homebase")
+fi
+export LHM_CATALOG LHM_SCHEMA
+log "Target: $DAB_TARGET ($TARGET_MODE) · catalog=$LHM_CATALOG · schema=$LHM_SCHEMA"
 
 # ---------- 1. warehouse ----------
 log "Resolving SQL warehouse"
@@ -58,28 +90,50 @@ make build > /dev/null
 # ---------- 3. stage-1 deploy ----------
 log "Stage 1 deploy — App + Lakebase instance + Init job (no DB binding, no Serving endpoint)"
 
-# Temporarily stash the Lakebase binding + Serving endpoint
+# Temporarily stash the Lakebase binding + Serving endpoint.
+# Stage 1 deploys WITHOUT the homebase-db resource binding (the Lakebase instance
+# doesn't exist yet) and WITHOUT the serving endpoint (the registered model
+# doesn't exist yet). Stage 2 restores both from git and re-deploys.
 python3 - <<'PY'
-import re, pathlib
+import pathlib
 app_yml = pathlib.Path("resources/app.yml")
 srv_yml = pathlib.Path("resources/serving.yml")
-# Comment out the database binding block
-text = app_yml.read_text()
-text = re.sub(r"^(        - name: homebase-db.*?(?=\n        - |\n      |\Z))",
-              lambda m: "\n".join("        # " + l.lstrip() for l in m.group(0).splitlines()),
-              text, flags=re.MULTILINE | re.DOTALL)
-app_yml.write_text(text)
-# Strip the serving endpoint to a no-op
+
+# Drop the entire homebase-db list item from the App's resources block.
+# Item starts with `        - name: homebase-db` and continues for all lines
+# that are indented MORE than 8 spaces (i.e. continuation lines of the item).
+out_lines = []
+in_db_item = False
+for line in app_yml.read_text().splitlines():
+    stripped = line.lstrip()
+    if line == "        - name: homebase-db":
+        in_db_item = True
+        continue
+    if in_db_item:
+        # Continuation lines start with 10+ spaces; the item ends when we hit
+        # the next list item (8 spaces + dash) or a shallower YAML key.
+        if line.startswith("          ") or stripped == "":
+            continue
+        in_db_item = False
+    out_lines.append(line)
+app_yml.write_text("\n".join(out_lines) + "\n")
+
+# Strip the serving endpoint to a no-op (entity_name references a UC model
+# that doesn't exist until the init job runs).
 srv_yml.write_text("resources: {}\n")
 PY
 
-databricks bundle deploy --var "warehouse_id=$WAREHOUSE_ID"
+databricks bundle deploy "${TARGET_ARGS[@]}" \
+  --var "warehouse_id=$WAREHOUSE_ID" \
+  --var "catalog=$LHM_CATALOG" \
+  --var "schema=$LHM_SCHEMA"
 
 # ---------- 4. grants ----------
 log "Granting App SP access to UC catalog + schema"
-APP_SP_ID=$(databricks apps get lakehouse-market-homebase -o json | jq -r '.service_principal_client_id')
+APP_NAME=$(databricks bundle summary "${TARGET_ARGS[@]}" -o json | jq -r '.resources.apps.homebase.name // "lakehouse-market-homebase"')
+APP_SP_ID=$(databricks apps get "$APP_NAME" -o json | jq -r '.service_principal_client_id')
 [[ -z "$APP_SP_ID" || "$APP_SP_ID" == "null" ]] && fail "Could not resolve App SP id"
-log "App SP: $APP_SP_ID"
+log "App: $APP_NAME · SP: $APP_SP_ID"
 export APP_SP_ID
 
 envsubst < scripts/grants.sql > /tmp/lhm_grants.sql
@@ -92,7 +146,7 @@ done
 
 # ---------- 5. init job ----------
 log "Running init job (data gen + ML training + scoring + Genie space)"
-databricks bundle run lhm_init_job
+databricks bundle run "${TARGET_ARGS[@]}" lhm_init_job
 
 # ---------- 6. capture Genie space id ----------
 log "Resolving Genie space id"
@@ -113,34 +167,60 @@ log "Stage 2 deploy — re-enable Lakebase binding + Serving endpoint"
 # Restore the stashed files from git so we re-deploy the canonical version
 git checkout -- resources/app.yml resources/serving.yml
 
-# Plug in the right Genie space + dev-prefixed serving endpoint name
-python3 - <<PY
-import pathlib, re
+# Plug in the resolved Genie space id; dev-prefix the serving endpoint only when
+# the target is in development mode (DAB strips the prefix in production targets).
+DAB_TARGET="$DAB_TARGET" TARGET_MODE="$TARGET_MODE" SPACE_ID="$SPACE_ID" python3 - <<'PY'
+import os, pathlib, re
+
+target_mode = os.environ.get("TARGET_MODE", "development")
+space_id = os.environ.get("SPACE_ID", "")
 app_yaml = pathlib.Path("app.yaml")
 text = app_yaml.read_text()
-text = re.sub(r"^(\s*-\s*name:\s*GENIE_SPACE_ID\s*\n\s*#[^\n]*\n\s*value:\s*\")[^\"]*(\")",
-              r"\g<1>$SPACE_ID\g<2>", text, flags=re.MULTILINE)
-# Dev-mode serving prefix (only if target is in dev mode)
-user_email = "$(databricks current-user me -o json | jq -r .userName)"
-user_prefix = user_email.split("@")[0].replace(".", "_").replace("-", "_")
-text = re.sub(r"^(\s*-\s*name:\s*LABOR_ENDPOINT\s*\n\s*#[^\n]*\n\s*value:\s*)[^\n]+",
-              rf"\g<1>dev_{user_prefix}_lhm-labor-recommender", text, flags=re.MULTILINE)
+
+# Update GENIE_SPACE_ID value (matches the empty default or any prior value).
+text = re.sub(
+    r'^(\s*-\s*name:\s*GENIE_SPACE_ID\s*\n(?:\s*#[^\n]*\n)?\s*value:\s*)"[^"]*"',
+    rf'\g<1>"{space_id}"',
+    text,
+    flags=re.MULTILINE,
+)
+
+# Update LABOR_ENDPOINT value based on target mode.
+if target_mode == "development":
+    import subprocess, json
+    out = subprocess.check_output(["databricks", "current-user", "me", "-o", "json"])
+    user_email = json.loads(out).get("userName", "")
+    user_prefix = user_email.split("@")[0].replace(".", "_").replace("-", "_")
+    endpoint = f"dev_{user_prefix}_lhm-labor-recommender"
+else:
+    endpoint = "lhm-labor-recommender"
+
+text = re.sub(
+    r'^(\s*-\s*name:\s*LABOR_ENDPOINT\s*\n(?:\s*#[^\n]*\n)*\s*value:\s*).*$',
+    rf'\g<1>{endpoint}',
+    text,
+    flags=re.MULTILINE,
+)
 app_yaml.write_text(text)
+print(f"app.yaml updated: GENIE_SPACE_ID={space_id}  LABOR_ENDPOINT={endpoint}")
 PY
 
-databricks bundle deploy --var "warehouse_id=$WAREHOUSE_ID"
+databricks bundle deploy "${TARGET_ARGS[@]}" \
+  --var "warehouse_id=$WAREHOUSE_ID" \
+  --var "catalog=$LHM_CATALOG" \
+  --var "schema=$LHM_SCHEMA"
 
 # ---------- 8. app source restart ----------
 log "Re-deploying app source"
-databricks bundle run homebase
+databricks bundle run "${TARGET_ARGS[@]}" homebase
 
 # ---------- 9. wait for ready + URL ----------
 log "Waiting for app to reach RUNNING"
 for i in {1..30}; do
-  s=$(databricks apps get lakehouse-market-homebase -o json | jq -r '.app_status.state // "?"')
+  s=$(databricks apps get "$APP_NAME" -o json | jq -r '.app_status.state // "?"')
   if [[ "$s" == "RUNNING" ]]; then break; fi
   echo "  ($s)"
   sleep 6
 done
-URL=$(databricks apps get lakehouse-market-homebase -o json | jq -r '.url')
+URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
 log "App is live: $URL"
