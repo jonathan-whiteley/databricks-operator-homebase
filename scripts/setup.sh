@@ -68,9 +68,13 @@ export LHM_CATALOG LHM_SCHEMA
 log "Target: $DAB_TARGET ($TARGET_MODE) · catalog=$LHM_CATALOG · schema=$LHM_SCHEMA"
 
 # ---------- 1. warehouse ----------
+# Note: inside a `databricks.yml` directory, recent CLI versions require an
+# explicit --target on workspace commands (`warehouses list`, etc.) because
+# the bundle context can override them. We pass --target on every CLI call
+# that runs while cwd is the bundle root.
 log "Resolving SQL warehouse"
 if [[ -z "${WAREHOUSE_ID:-}" ]]; then
-  WAREHOUSE_ID=$(databricks warehouses list -o json | jq -r '
+  WAREHOUSE_ID=$(databricks warehouses list "${TARGET_ARGS[@]}" -o json | jq -r '
     [.[] | select(.state == "RUNNING")][0].id //
     [.[] | select(.enable_serverless_compute == true)][0].id //
     .[0].id // ""')
@@ -80,7 +84,7 @@ log "Using warehouse: $WAREHOUSE_ID"
 export WAREHOUSE_ID
 
 # Bump auto-stop so demos don't go cold mid-walkthrough
-databricks warehouses edit "$WAREHOUSE_ID" --auto-stop-mins 120 > /dev/null 2>&1 || \
+databricks warehouses edit "$WAREHOUSE_ID" "${TARGET_ARGS[@]}" --auto-stop-mins 120 > /dev/null 2>&1 || \
   warn "Could not bump auto_stop_mins on the warehouse"
 
 # ---------- 2. build ----------
@@ -131,7 +135,7 @@ databricks bundle deploy "${TARGET_ARGS[@]}" \
 # ---------- 4. grants ----------
 log "Granting App SP access to UC catalog + schema"
 APP_NAME=$(databricks bundle summary "${TARGET_ARGS[@]}" -o json | jq -r '.resources.apps.homebase.name // "lakehouse-market-homebase"')
-APP_SP_ID=$(databricks apps get "$APP_NAME" -o json | jq -r '.service_principal_client_id')
+APP_SP_ID=$(databricks apps get "$APP_NAME" "${TARGET_ARGS[@]}" -o json | jq -r '.service_principal_client_id')
 [[ -z "$APP_SP_ID" || "$APP_SP_ID" == "null" ]] && fail "Could not resolve App SP id"
 log "App: $APP_NAME · SP: $APP_SP_ID"
 export APP_SP_ID
@@ -139,7 +143,7 @@ export APP_SP_ID
 envsubst < scripts/grants.sql > /tmp/lhm_grants.sql
 cat /tmp/lhm_grants.sql | while IFS= read -r stmt; do
   [[ -z "$stmt" || "$stmt" == "--"* ]] && continue
-  databricks api post /api/2.0/sql/statements \
+  databricks api post /api/2.0/sql/statements "${TARGET_ARGS[@]}" \
     --json "{\"statement\":$(jq -Rs <<<"$stmt"),\"warehouse_id\":\"$WAREHOUSE_ID\",\"wait_timeout\":\"30s\"}" \
     > /dev/null && echo "  ✓ $stmt"
 done
@@ -150,13 +154,13 @@ databricks bundle run "${TARGET_ARGS[@]}" lhm_init_job
 
 # ---------- 6. capture Genie space id ----------
 log "Resolving Genie space id"
-SPACE_ID=$(databricks genie list-spaces -o json | jq -r '
+SPACE_ID=$(databricks genie list-spaces "${TARGET_ARGS[@]}" -o json | jq -r '
   if type == "array" then .[] else .spaces[] end |
   select(.title == "lhm-ops-assistant") | .space_id' | head -1)
 [[ -z "$SPACE_ID" ]] && fail "Could not find Genie space 'lhm-ops-assistant'"
 log "Genie space: $SPACE_ID"
 
-databricks api put "/api/2.0/permissions/genie/$SPACE_ID" \
+databricks api put "/api/2.0/permissions/genie/$SPACE_ID" "${TARGET_ARGS[@]}" \
   --json "{\"access_control_list\":[{\"service_principal_name\":\"$APP_SP_ID\",\"permission_level\":\"CAN_RUN\"}]}" \
   > /dev/null
 log "Granted App SP CAN_RUN on Genie space"
@@ -188,7 +192,9 @@ text = re.sub(
 # Update LABOR_ENDPOINT value based on target mode.
 if target_mode == "development":
     import subprocess, json
-    out = subprocess.check_output(["databricks", "current-user", "me", "-o", "json"])
+    out = subprocess.check_output(
+        ["databricks", "current-user", "me", "--target", os.environ.get("DAB_TARGET", "default"), "-o", "json"]
+    )
     user_email = json.loads(out).get("userName", "")
     user_prefix = user_email.split("@")[0].replace(".", "_").replace("-", "_")
     endpoint = f"dev_{user_prefix}_lhm-labor-recommender"
@@ -217,10 +223,10 @@ databricks bundle run "${TARGET_ARGS[@]}" homebase
 # ---------- 9. wait for ready + URL ----------
 log "Waiting for app to reach RUNNING"
 for i in {1..30}; do
-  s=$(databricks apps get "$APP_NAME" -o json | jq -r '.app_status.state // "?"')
+  s=$(databricks apps get "$APP_NAME" "${TARGET_ARGS[@]}" -o json | jq -r '.app_status.state // "?"')
   if [[ "$s" == "RUNNING" ]]; then break; fi
   echo "  ($s)"
   sleep 6
 done
-URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
+URL=$(databricks apps get "$APP_NAME" "${TARGET_ARGS[@]}" -o json | jq -r '.url')
 log "App is live: $URL"
