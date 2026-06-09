@@ -31,18 +31,7 @@ env:
     value: "lakehouse-market-app-db"
   - name: LAKEBASE_DB
     value: "databricks_postgres"
-  - name: LAKEBASE_HOST
-    # read_write_dns from the Lakebase instance. Replace per workspace; the
-    # commented-out database resource binding in resources/app.yml normally
-    # injects this as PGHOST, but db-dais-2026 doesn't permit the binding.
-    value: "ep-aged-dawn-d23bdxwf.database.us-east-1.cloud.databricks.com"
-  - name: LAKEBASE_USER
-    # App SP client_id. Matches the Postgres role name; auth is via the static
-    # password below since the deployer SP can't grant the App SP membership in
-    # `databricks_superuser` (which is what JWT auth requires). The instance was
-    # patched to enable_pg_native_login=true to support this fallback.
-    value: "d2117218-74ed-4c4b-b39c-35ce96b5b9bf"
-  - name: LAKEBASE_PASSWORD
-    # Sourced from the `lakebase-pw` secret resource binding in resources/app.yml,
-    # which points at the lakehouse-market scope's lakebase_password key.
-    valueFrom: lakebase-pw
+  # LAKEBASE_HOST / LAKEBASE_USER / LAKEBASE_PASSWORD are auto-injected by the
+  # `homebase-db` database resource binding in resources/app.yml as
+  # PGHOST / PGUSER / PGPASSWORD; src/lakehouse_market/config.py falls back to
+  # the PG* names when the LAKEBASE_* values are absent.

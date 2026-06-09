@@ -70,15 +70,19 @@ function Shell() {
       >
         {!isLanding && <TopBar />}
         <div
-          style={{
-            flex: 1,
-            // /apps is a full-bleed navy hero, so drop the page padding;
-            // every other route keeps the standard 28/32 page chrome.
-            padding: isLanding ? 0 : "28px 32px",
-            display: "flex",
-            flexDirection: "column",
-            minHeight: 0,
-          }}
+          style={
+            isLanding
+              ? {
+                  // /apps is a full-bleed navy hero: kill the page padding
+                  // and switch to a column flex so AppsLanding can fill the
+                  // remaining viewport edge-to-edge.
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  minHeight: 0,
+                }
+              : { flex: 1, padding: "28px 32px" }
+          }
         >
           <Suspense
             fallback={
