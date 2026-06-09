@@ -82,58 +82,46 @@ def _sales_history(store_id: int, anchor: str) -> list[float]:
 def _outstanding(store_id: int, anchor: str) -> Outstanding:
     """Counts surfaced as nav badges and module-rail signals.
 
-    These mirror what the per-module routers compute (reorder queue size,
-    high-churn members, at-risk equipment, recent reviews) but inlined so the
-    aggregator stays one round-trip per module without paying for the full
-    row payloads.
+    Was five sequential SELECTs; collapsed to a single round-trip via
+    correlated subqueries so the brief lands faster on cold loads.
     """
-    reorders = fetch_all(
-        """WITH latest AS (
-             SELECT store_id, sku_id, on_hand,
-               row_number() OVER (PARTITION BY store_id, sku_id ORDER BY snapshot_date DESC) AS rn
-             FROM inventory_snapshots
-           )
-           SELECT count(*) AS n
-           FROM latest l JOIN skus sk USING (sku_id)
-           WHERE l.store_id = :store_id AND l.rn = 1 AND l.on_hand < sk.reorder_point""",
-        {"store_id": store_id},
-    )
-    equipment = fetch_all(
-        """SELECT count(*) AS n
-             FROM equipment e JOIN rul_predictions rp USING (equipment_id)
-             WHERE e.store_id = :store_id AND rp.rul_days < 14""",
-        {"store_id": store_id},
-    )
-    members = fetch_all(
-        """SELECT count(DISTINCT cp.member_id) AS n
-             FROM loyalty_members m JOIN churn_predictions cp USING (member_id)
-             WHERE m.preferred_store_id = :store_id AND cp.churn_probability > 0.7""",
-        {"store_id": store_id},
-    )
-    feedback = fetch_all(
-        """SELECT count(*) AS n FROM reviews r
-             WHERE r.store_id = :store_id
-               AND r.ts >= to_date(:anchor) - INTERVAL 7 DAYS
-               AND r.ts <= to_date(:anchor)""",
+    rows = fetch_all(
+        """SELECT
+             (SELECT count(*) FROM daily_sales_forecast
+                WHERE store_id = :store_id AND date = to_date(:anchor)) AS labor_n,
+             (SELECT count(*)
+                FROM (
+                  SELECT store_id, sku_id, on_hand,
+                    row_number() OVER (PARTITION BY store_id, sku_id ORDER BY snapshot_date DESC) AS rn
+                  FROM inventory_snapshots
+                ) latest
+                JOIN skus sk USING (sku_id)
+                WHERE latest.store_id = :store_id AND latest.rn = 1
+                  AND latest.on_hand < sk.reorder_point) AS inventory_n,
+             (SELECT count(*) FROM equipment e
+                JOIN rul_predictions rp USING (equipment_id)
+                WHERE e.store_id = :store_id AND rp.rul_days < 14) AS equipment_n,
+             (SELECT count(DISTINCT cp.member_id)
+                FROM loyalty_members m JOIN churn_predictions cp USING (member_id)
+                WHERE m.preferred_store_id = :store_id
+                  AND cp.churn_probability > 0.7) AS members_n,
+             (SELECT count(*) FROM reviews r
+                WHERE r.store_id = :store_id
+                  AND r.ts >= to_date(:anchor) - INTERVAL 7 DAYS
+                  AND r.ts <= to_date(:anchor)) AS feedback_n""",
         {"store_id": store_id, "anchor": anchor},
     )
-    # Labor "to approve" doesn't have a queue table yet; surface day-parts on
-    # the anchor date as a proxy so the chip lights up on a fresh demo.
-    labor = fetch_all(
-        """SELECT count(*) AS n FROM daily_sales_forecast
-             WHERE store_id = :store_id AND date = to_date(:anchor)""",
-        {"store_id": store_id, "anchor": anchor},
-    )
-
-    def _n(rows: list[dict[str, Any]]) -> int:
-        return int(rows[0]["n"]) if rows and rows[0].get("n") is not None else 0
+    r = rows[0] if rows else {}
+    def _n(key: str) -> int:
+        v = r.get(key)
+        return int(v) if v is not None else 0
 
     return Outstanding(
-        labor=_n(labor),
-        inventory=_n(reorders),
-        equipment=_n(equipment),
-        members=_n(members),
-        feedback=_n(feedback),
+        labor=_n("labor_n"),
+        inventory=_n("inventory_n"),
+        equipment=_n("equipment_n"),
+        members=_n("members_n"),
+        feedback=_n("feedback_n"),
     )
 
 

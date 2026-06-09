@@ -16,7 +16,6 @@ from fastapi.staticfiles import StaticFiles
 from .config import get_settings
 from .lakebase_migrate import run_migrations
 from .routers import genie, labor, loyalty, maintenance, meta, sentiment, supply, today
-from .sql_utils import fetch_all
 
 
 @asynccontextmanager
@@ -26,14 +25,17 @@ async def lifespan(_app: FastAPI):
             await run_migrations()
         except Exception as e:  # never block app start on a missing DB during local dev
             print(f"[startup] lakebase migration skipped: {e}")
-    # Pre-warm the SQL warehouse + connector pool so the first user request
-    # doesn't pay for the cluster cold start. ~2-3s; failures are non-fatal.
+    # Pre-execute the Today brief for the default store so it lands in the
+    # sql_utils TTL cache before any user hits the app. This warms the
+    # connector pool, the warehouse cluster, AND the actual hot query path,
+    # so the first /today/brief request is sub-second instead of the 3-5s
+    # six-roundtrip cold path. Failures are non-fatal.
     if get_settings().warehouse_id:
         try:
-            fetch_all("SELECT 1 AS warm FROM stores LIMIT 1")
-            print("[startup] warehouse pre-warmed")
+            today.brief(store_id=today.DEMO_STORE_ID)
+            print("[startup] today brief pre-warmed")
         except Exception as e:
-            print(f"[startup] warehouse pre-warm skipped: {e}")
+            print(f"[startup] today brief pre-warm skipped: {e}")
     yield
 
 
