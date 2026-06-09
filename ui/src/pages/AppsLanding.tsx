@@ -6,11 +6,12 @@
 // Homebase opens the in-app /today route; the other three open their
 // external Databricks Apps deploys in a new tab.
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Icon, { type IconName } from "@/components/db/Icon";
 import { useToast } from "@/components/db/ToastRegion";
+import { useApi } from "@/lib/api";
 
 type AppEntry = {
   id: string;
@@ -24,7 +25,11 @@ type AppEntry = {
   url: string | null; // null = internal Homebase route
 };
 
-const APPS: AppEntry[] = [
+// Per-workspace URLs come from /api/meta/apps (driven by env vars in app.yaml),
+// so each Databricks workspace deploy can point at its own internal sibling
+// apps. The static `url` here is just the fallback if the config call hasn't
+// resolved yet (or that workspace didn't configure one for that app).
+const APPS_BASE: AppEntry[] = [
   {
     id: "homebase",
     name: "Operator Homebase",
@@ -44,7 +49,7 @@ const APPS: AppEntry[] = [
     icon: "doc",
     accent: "var(--db-blue-600)",
     tint: "var(--db-blue-300)",
-    url: "https://brickyard-contract-recon-7474650217702955.aws.databricksapps.com",
+    url: null,
   },
   {
     id: "vision",
@@ -54,7 +59,7 @@ const APPS: AppEntry[] = [
     icon: "eye",
     accent: "var(--db-green-600)",
     tint: "var(--db-green-300)",
-    url: "https://lens-iq-7474650217702955.aws.databricksapps.com",
+    url: null,
   },
   {
     id: "airline",
@@ -64,9 +69,15 @@ const APPS: AppEntry[] = [
     icon: "plane",
     accent: "var(--db-yellow-700)",
     tint: "var(--db-yellow-300)",
-    url: "https://brick-airlines-irops-app-7474650217702955.aws.databricksapps.com",
+    url: null,
   },
 ];
+
+type AppsConfig = {
+  contract_recon: string | null;
+  computer_vision: string | null;
+  irregular_ops: string | null;
+};
 
 function AppNode({
   app,
@@ -158,6 +169,19 @@ export default function AppsLanding() {
   const navigate = useNavigate();
   const toast = useToast();
   const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Per-workspace URLs from /api/meta/apps. Merge with the static APPS_BASE
+  // so the radial still renders if the call is in-flight or returns nulls.
+  const { data: cfg } = useApi<AppsConfig>(["meta-apps"], "/meta/apps");
+  const APPS = useMemo<AppEntry[]>(() => {
+    const byId: Record<string, string | null> = {
+      homebase: null,
+      contract: cfg?.contract_recon ?? null,
+      vision: cfg?.computer_vision ?? null,
+      airline: cfg?.irregular_ops ?? null,
+    };
+    return APPS_BASE.map((a) => ({ ...a, url: byId[a.id] ?? a.url }));
+  }, [cfg]);
 
   // Concise radial geometry (v2 design): ~20% smaller than the prior pass.
   const W = 720;

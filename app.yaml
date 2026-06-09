@@ -32,6 +32,15 @@ env:
     # SQL warehouse reads for 24h. After the first visit to any tab, every
     # subsequent navigation on that tab is served from in-process memory.
     value: "86400"
+  # /apps launcher: per-workspace URLs for the sibling industry apps. Each
+  # Databricks deploy can point at its own internal instance of each app by
+  # overriding these. Surfaced via /api/meta/apps to AppsLanding on mount.
+  - name: CONTRACT_RECON_URL
+    value: "https://brickyard-recon-7474648497946518.aws.databricksapps.com/"
+  - name: COMPUTER_VISION_URL
+    value: "https://lens-iq-7474650217702955.aws.databricksapps.com/guests"
+  - name: IRREGULAR_OPS_URL
+    value: "https://brick-airlines-irops-7474648119688217.aws.databricksapps.com/"
   - name: LAKEBASE_INSTANCE
     value: "lakehouse-market-app-db"
   - name: LAKEBASE_DB
