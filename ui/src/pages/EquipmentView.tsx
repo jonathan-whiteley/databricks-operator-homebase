@@ -7,7 +7,8 @@
 //   1. PageHead (equipment icon, Refresh ghost button)
 //   2. CoolerAlert — dark navy hero for the most-at-risk unit. Left side
 //      shows alert eyebrow + name + drift summary + temperature sparkline
-//      with the 41° threshold line. Right side either offers three service
+//      with the unit's category-specific upper-limit threshold line. Right
+//      side either offers three service
 //      windows (radio rows) and a "Book … service" button, or shows the
 //      booked confirmation with a green check and LakebaseTag.
 //   3. "All equipment" section header with a healthy/watch summary.
@@ -149,9 +150,10 @@ function shortDate(iso: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// TempChart — large temperature sparkline with a 41°F threshold line.
-// Direct port of equipment.jsx:3-19. We pull `pts` straight from the
-// telemetry API.
+// TempChart — temperature sparkline with an optional category-specific
+// upper-threshold guide line. Caller passes `threshold` from the unit's
+// equipment.target_temp_max so refrigeration shows ~40°F, an oven shows
+// ~360°F, etc. Original port: equipment.jsx:3-19.
 // ---------------------------------------------------------------------------
 
 function TempChart({
@@ -159,11 +161,13 @@ function TempChart({
   w = 300,
   h = 80,
   danger = false,
+  threshold,
 }: {
   pts: number[];
   w?: number;
   h?: number;
   danger?: boolean;
+  threshold?: number;
 }) {
   if (pts.length < 2) {
     return (
@@ -181,8 +185,10 @@ function TempChart({
       </div>
     );
   }
-  const max = Math.max(...pts, 41);
-  const min = Math.min(...pts, 36);
+  const hi = threshold != null ? threshold : Math.max(...pts);
+  const lo = Math.min(...pts);
+  const max = Math.max(...pts, hi);
+  const min = Math.min(...pts, lo);
   const rng = max - min || 1;
   const step = w / (pts.length - 1);
   const xy = pts.map(
@@ -191,7 +197,10 @@ function TempChart({
   const line = xy
     .map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
     .join(" ");
-  const thresholdY = h - ((41 - min) / rng) * (h - 10) - 5;
+  const showThreshold = threshold != null;
+  const thresholdY = showThreshold
+    ? h - ((threshold! - min) / rng) * (h - 10) - 5
+    : 0;
   const col = danger ? "var(--db-lava-600)" : "var(--db-green-600)";
   const last = xy[xy.length - 1];
   return (
@@ -201,25 +210,29 @@ function TempChart({
       viewBox={`0 0 ${w} ${h}`}
       style={{ display: "block", overflow: "visible", width: "100%" }}
     >
-      <line
-        x1="0"
-        y1={thresholdY}
-        x2={w}
-        y2={thresholdY}
-        stroke="var(--db-lava-400)"
-        strokeWidth="1"
-        strokeDasharray="4 4"
-      />
-      <text
-        x={w - 2}
-        y={thresholdY - 4}
-        textAnchor="end"
-        fontSize="9"
-        fill="var(--db-lava-700)"
-        fontFamily="var(--font-mono)"
-      >
-        41° limit
-      </text>
+      {showThreshold && (
+        <>
+          <line
+            x1="0"
+            y1={thresholdY}
+            x2={w}
+            y2={thresholdY}
+            stroke="var(--db-lava-400)"
+            strokeWidth="1"
+            strokeDasharray="4 4"
+          />
+          <text
+            x={w - 2}
+            y={thresholdY - 4}
+            textAnchor="end"
+            fontSize="9"
+            fill="var(--db-lava-700)"
+            fontFamily="var(--font-mono)"
+          >
+            {Math.round(threshold!)}° limit
+          </text>
+        </>
+      )}
       <path d={`${line} L${w} ${h} L0 ${h} Z`} fill={col} opacity="0.08" />
       <path
         d={line}
@@ -417,7 +430,7 @@ function CoolerAlert({
               padding: "14px 16px",
             }}
           >
-            <TempChart pts={pts} danger />
+            <TempChart pts={pts} danger threshold={unit?.target_temp_max} />
           </div>
         </div>
 
