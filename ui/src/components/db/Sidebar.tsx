@@ -1,13 +1,11 @@
 // ui/src/components/db/Sidebar.tsx
 //
-// 236px navy-900 left rail. Six nav items, optional outstanding-count badges,
-// and a manager profile chip at the bottom with a Demo Settings popover.
-// Active state is driven by react-router's NavLink, so URL changes propagate
-// automatically. Badge counts come from /api/today/brief (shared with the
-// Today view) so the rail stays in sync with the daily brief.
-import { useEffect, useRef, useState } from "react";
+// 236px navy-900 left rail. Apps + Operations + Reference sections with
+// optional outstanding-count badges, and a manager profile chip at the
+// bottom. Active state is driven by react-router's NavLink, so URL changes
+// propagate automatically. Badge counts come from /api/today/brief (shared
+// with the Today view) so the rail stays in sync with the daily brief.
 import { NavLink } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 
 import { useApi } from "@/lib/api";
 import { useStoreId } from "@/state/store";
@@ -16,6 +14,7 @@ import Icon, { type IconName } from "./Icon";
 import Logo from "./Logo";
 
 type NavKey =
+  | "apps"
   | "today"
   | "labor"
   | "inventory"
@@ -32,6 +31,10 @@ type NavEntry = {
   icon: IconName;
   key: NavKey;
 };
+
+const APPS: NavEntry[] = [
+  { to: "/apps", label: "Apps", icon: "grid", key: "apps" },
+];
 
 const OPERATIONS: NavEntry[] = [
   { to: "/today", label: "Today", icon: "today", key: "today" },
@@ -119,6 +122,11 @@ export default function Sidebar() {
           overflow: "auto",
         }}
       >
+        <SectionLabel>Apps</SectionLabel>
+        {APPS.map((it) => (
+          <NavRow key={it.to} entry={it} count={0} />
+        ))}
+        <SectionDivider />
         <SectionLabel>Operations</SectionLabel>
         {OPERATIONS.map((it) => (
           <NavRow key={it.to} entry={it} count={countFor(it.key)} />
@@ -167,124 +175,9 @@ export default function Sidebar() {
             </div>
             <div style={{ fontSize: 10.5, color: "var(--db-navy-400)" }}>Store manager</div>
           </div>
-          <SettingsButton />
         </div>
       </div>
     </aside>
-  );
-}
-
-function SettingsButton() {
-  const [open, setOpen] = useState(false);
-  const [storeId] = useStoreId();
-  const queryClient = useQueryClient();
-  const popRef = useRef<HTMLDivElement | null>(null);
-
-  // Close on outside click.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (popRef.current && !popRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [open]);
-
-  const handleReload = () => {
-    void queryClient.invalidateQueries();
-    setOpen(false);
-  };
-
-  return (
-    <div style={{ position: "relative" }} ref={popRef}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Demo settings"
-        title="Demo settings"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "transparent",
-          border: 0,
-          padding: 4,
-          borderRadius: 6,
-          cursor: "pointer",
-        }}
-      >
-        <Icon name="settings" size={15} color="var(--db-navy-400)" />
-      </button>
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            right: 0,
-            bottom: 36,
-            width: 240,
-            background: "#fff",
-            color: "var(--db-navy-800)",
-            borderRadius: 10,
-            boxShadow: "0 12px 30px rgba(0,0,0,0.18)",
-            border: "1px solid var(--db-gray-lines)",
-            padding: "12px 14px",
-            zIndex: 200,
-            fontFamily: "var(--font-sans)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 10.5,
-              fontWeight: 600,
-              letterSpacing: "0.09em",
-              textTransform: "uppercase",
-              color: "var(--db-gray-text)",
-              marginBottom: 8,
-            }}
-          >
-            Demo settings
-          </div>
-          <div style={{ fontSize: 12, lineHeight: 1.55, marginBottom: 12 }}>
-            <div>
-              <strong>Store:</strong> #{String(storeId).padStart(3, "0")}
-            </div>
-            <div>
-              <strong>Anchor date:</strong> 2025-10-30
-            </div>
-            <div>
-              <strong>Catalog:</strong>{" "}
-              <span style={{ fontFamily: "var(--font-mono)" }}>
-                retail_consumer_goods.tth_ops_homebase
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleReload}
-            style={{
-              width: "100%",
-              height: 30,
-              borderRadius: 6,
-              border: "1px solid var(--db-gray-lines)",
-              background: "var(--db-oat-light)",
-              color: "var(--db-navy-800)",
-              fontSize: 12.5,
-              fontWeight: 500,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-            }}
-          >
-            <Icon name="refresh" size={12} color="var(--db-navy-800)" />
-            Reload data
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 

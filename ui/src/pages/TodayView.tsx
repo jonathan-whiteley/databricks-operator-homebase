@@ -11,7 +11,7 @@
 // the design dropped it in favor of the radial hub as the primary visual.
 import { useNavigate } from "react-router-dom";
 
-import { Btn, Icon, LEVEL, PATHS } from "@/components/db";
+import { Btn, Card, Icon, LEVEL, PATHS } from "@/components/db";
 import type { IconName, PillLevel } from "@/components/db";
 import { useApi } from "@/lib/api";
 import { useGeniePanel } from "@/state/genie-panel";
@@ -144,237 +144,90 @@ function TodaySkeleton() {
   );
 }
 
-// ===== Radial hub =====
-// Geometry from the design template: 600px square, center at (300,300),
-// radius 212px to the centers of the module nodes; each node is a 150px
-// white circle. Spokes are dashed lines on the ring + solid lines from
-// center to each node.
-const HUB_SIZE = 600;
-const HUB_CENTER = HUB_SIZE / 2;
-const HUB_RADIUS = 212;
-const NODE_SIZE = 150;
-const CENTER_SIZE = 150;
-
-type HubNode = {
-  m: ModuleEntry;
-  count: number;
-  done: boolean;
-  lv: (typeof LEVEL)[PillLevel];
-  x: number;
-  y: number;
-};
-
-function buildHubNodes(outstanding: Outstanding): HubNode[] {
-  return MODULES.map((m, i) => {
-    const count = outstanding[m.id] ?? 0;
-    const done = count === 0;
-    const lv = done ? LEVEL.ok : LEVEL[m.level];
-    const angle = (-90 + i * (360 / MODULES.length)) * (Math.PI / 180);
-    return {
-      m,
-      count,
-      done,
-      lv,
-      x: HUB_CENTER + HUB_RADIUS * Math.cos(angle),
-      y: HUB_CENTER + HUB_RADIUS * Math.sin(angle),
-    };
-  });
-}
-
-function RadialHub({
-  outstanding,
-  totalOpen,
-  onOpenGenie,
-}: {
-  outstanding: Outstanding;
-  totalOpen: number;
-  onOpenGenie: () => void;
-}) {
+function ModuleRow({ outstanding }: { outstanding: Outstanding }) {
   const navigate = useNavigate();
-  const nodes = buildHubNodes(outstanding);
   return (
     <div
       style={{
-        position: "relative",
-        width: HUB_SIZE,
-        height: HUB_SIZE,
-        margin: "8px auto 0",
+        display: "grid",
+        gridTemplateColumns: "repeat(5, 1fr)",
+        gap: 12,
+        marginTop: 14,
       }}
     >
-      <svg
-        width={HUB_SIZE}
-        height={HUB_SIZE}
-        style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
-      >
-        <circle
-          cx={HUB_CENTER}
-          cy={HUB_CENTER}
-          r={HUB_RADIUS}
-          fill="none"
-          stroke="var(--db-gray-lines)"
-          strokeWidth="1.5"
-          strokeDasharray="3 7"
-          opacity="0.8"
-        />
-        {nodes.map((n, i) => (
-          <line
-            key={i}
-            x1={HUB_CENTER}
-            y1={HUB_CENTER}
-            x2={n.x}
-            y2={n.y}
-            stroke="var(--db-gray-lines)"
-            strokeWidth="1.5"
-          />
-        ))}
-      </svg>
-
-      {/* Center — Ask Genie */}
-      <button
-        type="button"
-        onClick={onOpenGenie}
-        data-tour-target="today.genie"
-        className="hb-hub"
-        style={{
-          position: "absolute",
-          left: HUB_CENTER,
-          top: HUB_CENTER,
-          transform: "translate(-50%, -50%)",
-          width: CENTER_SIZE,
-          height: CENTER_SIZE,
-          borderRadius: 999,
-          background: "var(--db-navy-900)",
-          border: "5px solid var(--db-oat-light)",
-          boxShadow: "var(--shadow-lg)",
-          cursor: "pointer",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 7,
-          color: "#fff",
-          textAlign: "center",
-          padding: 10,
-        }}
-      >
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 11,
-            background: "var(--db-lava-600)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Icon name="spark" size={22} color="#fff" />
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em" }}>
-          Ask Genie
-        </div>
-        <div style={{ fontSize: 10.5, color: "var(--db-navy-400)", lineHeight: 1.3 }}>
-          {totalOpen > 0
-            ? `${totalOpen} ${totalOpen === 1 ? "item needs" : "items need"} you`
-            : "All caught up"}
-        </div>
-      </button>
-
-      {/* Module nodes */}
-      {nodes.map(({ m, count, done, lv, x, y }) => (
-        <button
-          key={m.id}
-          type="button"
-          onClick={() => navigate(MODULE_ROUTE[m.id])}
-          className="hb-node"
-          style={{
-            position: "absolute",
-            left: x,
-            top: y,
-            transform: "translate(-50%, -50%)",
-            width: NODE_SIZE,
-            height: NODE_SIZE,
-            borderRadius: 999,
-            background: "#fff",
-            border: done
-              ? "1px solid var(--db-gray-lines)"
-              : `2px solid ${lv.dot}`,
-            boxShadow: "var(--shadow-sm)",
-            cursor: "pointer",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 7,
-            padding: 14,
-            textAlign: "center",
-          }}
-        >
-          {done ? (
-            <span style={{ position: "absolute", top: 16, right: 20, display: "flex" }}>
-              <Icon name="check" size={15} color="var(--db-green-600)" stroke={2.4} />
-            </span>
-          ) : (
-            <span
+      {MODULES.map((m) => {
+        const count = outstanding[m.id] ?? 0;
+        const done = count === 0;
+        const lv = done ? LEVEL.ok : LEVEL[m.level];
+        return (
+          <Card
+            key={m.id}
+            hover
+            pad={16}
+            onClick={() => navigate(MODULE_ROUTE[m.id])}
+            style={{ cursor: "pointer", display: "flex", flexDirection: "column", gap: 10 }}
+          >
+            <div
               style={{
-                position: "absolute",
-                top: 14,
-                right: 18,
-                minWidth: 22,
-                height: 22,
-                padding: "0 6px",
-                borderRadius: 999,
-                background: lv.bg,
-                color: lv.fg,
-                fontSize: 11,
-                fontWeight: 600,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "space-between",
               }}
             >
-              {count > 99 ? "99+" : count}
-            </span>
-          )}
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: lv.bg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Icon name={m.icon} size={22} color={lv.fg} />
-          </div>
-          <div
-            style={{
-              fontSize: 13.5,
-              fontWeight: 600,
-              color: "var(--db-navy-800)",
-              letterSpacing: "-0.01em",
-              lineHeight: 1.1,
-            }}
-          >
-            {m.name}
-          </div>
-          <div
-            style={{
-              fontSize: 10.5,
-              color: "var(--db-gray-text)",
-              lineHeight: 1.25,
-              maxWidth: 118,
-            }}
-          >
-            {m.signal(count)}
-          </div>
-        </button>
-      ))}
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 9,
+                  background: lv.bg,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Icon name={m.icon} size={18} color={lv.fg} />
+              </div>
+              {done ? (
+                <Icon name="check" size={16} color="var(--db-green-600)" stroke={2.2} />
+              ) : (
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 999,
+                    background: lv.dot,
+                  }}
+                />
+              )}
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  color: "var(--db-navy-800)",
+                }}
+              >
+                {m.name}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--db-gray-text)",
+                  marginTop: 3,
+                  lineHeight: 1.4,
+                }}
+              >
+                {m.signal(count)}
+              </div>
+            </div>
+          </Card>
+        );
+      })}
     </div>
   );
 }
+
 
 export default function TodayView() {
   const navigate = useNavigate();
@@ -586,34 +439,20 @@ export default function TodayView() {
         </div>
       </div>
 
-      {/* ===== Radial module hub ===== */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          marginTop: 30,
-        }}
-      >
+      {/* ===== Module row ===== */}
+      <div style={{ display: "flex", alignItems: "center", marginTop: 28 }}>
         <h2
           style={{
             fontSize: 16,
             fontWeight: 500,
             color: "var(--db-navy-800)",
-            margin: "0 0 4px",
+            margin: 0,
           }}
         >
           Jump into a module
         </h2>
-        <p style={{ fontSize: 13, color: "var(--db-gray-text)", margin: 0 }}>
-          Five spokes, one console — Genie sits at the center.
-        </p>
       </div>
-      <RadialHub
-        outstanding={outstanding}
-        totalOpen={totalOpen}
-        onOpenGenie={openPanel}
-      />
+      <ModuleRow outstanding={outstanding} />
     </div>
   );
 }

@@ -5,7 +5,7 @@
 // six (today / labor / inventory / equipment / members / feedback) with
 // redirects from the legacy paths.
 import { Suspense, lazy } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import {
   GeniePanel,
@@ -22,6 +22,7 @@ import { TourProvider } from "./state/tour-mode";
 // mounted on `/today` — TodayView is the new home. LoyaltyPage similarly
 // stays on disk through Phase 9 but is no longer mounted — MembersView
 // is the new `/members` home.
+const AppsLanding = lazy(() => import("./pages/AppsLanding"));
 const TodayView = lazy(() => import("./pages/TodayView"));
 const LaborView = lazy(() => import("./pages/LaborView"));
 const InventoryView = lazy(() => import("./pages/InventoryView"));
@@ -37,42 +38,66 @@ export function App() {
     <ToastProvider>
       <GeniePanelProvider>
         <TourProvider>
+          <Shell />
+        </TourProvider>
+      </GeniePanelProvider>
+    </ToastProvider>
+  );
+}
+
+function Shell() {
+  const location = useLocation();
+  // /apps is the DAIS booth launcher — full-bleed navy hero; hide the
+  // store/clock/Genie TopBar to keep the moment clean.
+  const isLanding = location.pathname === "/apps";
+  return (
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        background: "var(--bg)",
+        color: "var(--fg-1)",
+      }}
+    >
+      <Sidebar />
+      <main
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {!isLanding && <TopBar />}
         <div
           style={{
+            flex: 1,
+            // /apps is a full-bleed navy hero, so drop the page padding;
+            // every other route keeps the standard 28/32 page chrome.
+            padding: isLanding ? 0 : "28px 32px",
             display: "flex",
-            minHeight: "100vh",
-            background: "var(--bg)",
-            color: "var(--fg-1)",
+            flexDirection: "column",
+            minHeight: 0,
           }}
         >
-          <Sidebar />
-          <main
-            style={{
-              flex: 1,
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <TopBar />
-            <div style={{ flex: 1, padding: "28px 32px" }}>
-              <Suspense
-                fallback={
-                  <div
-                    style={{
-                      padding: "48px 0",
-                      textAlign: "center",
-                      color: "var(--fg-2)",
-                    }}
-                  >
-                    Loading…
-                  </div>
-                }
+          <Suspense
+            fallback={
+              <div
+                style={{
+                  padding: "48px 0",
+                  textAlign: "center",
+                  color: "var(--fg-2)",
+                }}
               >
-                <Routes>
-                  {/* New canonical paths */}
-                  <Route path="/" element={<Navigate to="/today" replace />} />
-                  <Route path="/today" element={<TodayView />} />
+                Loading…
+              </div>
+            }
+          >
+            <Routes>
+              {/* / lands on the Apps launcher (DAIS booth default) */}
+              <Route path="/" element={<Navigate to="/apps" replace />} />
+              <Route path="/apps" element={<AppsLanding />} />
+              <Route path="/today" element={<TodayView />} />
                   <Route path="/labor" element={<LaborView />} />
                   <Route path="/inventory" element={<InventoryView />} />
                   <Route path="/equipment" element={<EquipmentView />} />
@@ -95,16 +120,13 @@ export function App() {
                     path="/maintenance"
                     element={<Navigate to="/equipment" replace />}
                   />
-                </Routes>
-              </Suspense>
-            </div>
-          </main>
-          <GeniePanel />
-          <TourCursor />
-          <TourOverlay />
+            </Routes>
+          </Suspense>
         </div>
-        </TourProvider>
-      </GeniePanelProvider>
-    </ToastProvider>
+      </main>
+      <GeniePanel />
+      <TourCursor />
+      <TourOverlay />
+    </div>
   );
 }

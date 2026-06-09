@@ -79,6 +79,14 @@ export const PATHS = {
     "M3 4h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM8 22h8M12 18v4",
   diagram:
     "M5 4h4v4H5zM15 4h4v4h-4zM10 16h4v4h-4zM7 8v3a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V8M12 13v3",
+  doc:
+    "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h8M8 17h8M8 9h2",
+  eye:
+    "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
+  plane:
+    "M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2A1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5L21 16Z",
+  grid:
+    "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
 } as const;
 
 export type IconName = keyof typeof PATHS;
