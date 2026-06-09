@@ -8,9 +8,9 @@ command:
 
 env:
   - name: LHM_CATALOG
-    value: retail_consumer_goods
+    value: jdub_demo
   - name: LHM_SCHEMA
-    value: tth_ops_homebase
+    value: lakehouse_market
   - name: DATABRICKS_WAREHOUSE_ID
     # Injected from the `warehouse-default` sql_warehouse binding in resources/app.yml.
     valueFrom: warehouse-default
@@ -18,15 +18,20 @@ env:
     # In dev-mode targets, DAB prefixes serving endpoints (dev_<user>_lhm-labor-recommender);
     # scripts/setup.sh rewrites this value for dev targets after deploy. For production
     # targets (e.g. `dais`) the canonical name is used as-is.
-    value: lhm-labor-recommender
+    value: dev_jonathan_whiteley_lhm-labor-recommender
   - name: FM_ENDPOINT
     value: databricks-claude-sonnet-4-6
   - name: GENIE_SPACE_ID
     # Populated by scripts/setup.sh after notebooks/06_ensure_genie_space.py runs.
-    value: "01f160fd844418bcab89a57842a73f59"
+    value: "01f15c9315b117008c9d056472ecdf03"
   - name: DEMO_ANCHOR_DATE
     # Synthetic data window ends 2025-10-30; queries use this as "today".
     value: "2025-10-30"
+  - name: LHM_QUERY_CACHE_TTL
+    # Demo workload: the underlying data only changes on a redeploy, so cache
+    # SQL warehouse reads for 24h. After the first visit to any tab, every
+    # subsequent navigation on that tab is served from in-process memory.
+    value: "86400"
   - name: LAKEBASE_INSTANCE
     value: "lakehouse-market-app-db"
   - name: LAKEBASE_DB

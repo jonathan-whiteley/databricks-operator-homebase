@@ -25,17 +25,35 @@ async def lifespan(_app: FastAPI):
             await run_migrations()
         except Exception as e:  # never block app start on a missing DB during local dev
             print(f"[startup] lakebase migration skipped: {e}")
-    # Pre-execute the Today brief for the default store so it lands in the
-    # sql_utils TTL cache before any user hits the app. This warms the
-    # connector pool, the warehouse cluster, AND the actual hot query path,
-    # so the first /today/brief request is sub-second instead of the 3-5s
-    # six-roundtrip cold path. Failures are non-fatal.
+    # Pre-execute every module's primary read path for the default store so
+    # they all land in the sql_utils TTL cache (24h) before any user clicks.
+    # With this hook, navigating between Today / Labor / Inventory / Equipment
+    # / Loyalty / Feedback is served from in-process memory instead of paying
+    # a cold warehouse roundtrip on every first visit. Failures are non-fatal.
     if get_settings().warehouse_id:
-        try:
-            today.brief(store_id=today.DEMO_STORE_ID)
-            print("[startup] today brief pre-warmed")
-        except Exception as e:
-            print(f"[startup] today brief pre-warm skipped: {e}")
+        store_id = today.DEMO_STORE_ID
+        from datetime import date as _date
+        today_str = _date.today().isoformat()
+        warm_targets = [
+            ("today brief", lambda: today.brief(store_id=store_id)),
+            ("stores", lambda: meta.list_stores()),
+            ("labor today", lambda: labor.today(store_id=store_id, date=today_str)),
+            ("equipment at-risk", lambda: maintenance.at_risk(store_id=store_id)),
+            ("loyalty kpis", lambda: loyalty.kpis(store_id=store_id)),
+            ("loyalty at-risk", lambda: loyalty.at_risk(store_id=store_id)),
+            ("loyalty map", lambda: loyalty.map_points(store_id=store_id)),
+            ("supply reorder queue", lambda: supply.reorder_queue(store_id=store_id)),
+            ("supply tomorrow deliveries", lambda: supply.tomorrow_deliveries(store_id=store_id)),
+            ("sentiment inbox", lambda: sentiment.inbox(store_id=store_id)),
+            ("sentiment digest", lambda: sentiment.digest(store_id=store_id)),
+            ("sentiment timeline", lambda: sentiment.timeline(store_id=store_id)),
+        ]
+        for name, fn in warm_targets:
+            try:
+                fn()
+                print(f"[startup] pre-warmed {name}")
+            except Exception as e:
+                print(f"[startup] pre-warm {name} skipped: {e}")
     yield
 
 
