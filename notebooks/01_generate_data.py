@@ -28,19 +28,23 @@ spark.sql(f"USE SCHEMA {SCHEMA}")
 addr = Address("en"); per = Person("en")
 random.seed(SEED)
 
+# Store 1 is the DAIS demo default; pick an inland Silicon Valley city so
+# the Loyalty map renders without large bodies of water (SF is on a
+# peninsula, Oakland/Berkeley face the Bay — those still appear later in
+# the list but aren't the default landing view).
 BAY_AREA = [
-    ("San Francisco",   "CA", "94103", 37.7749, -122.4194),
-    ("Oakland",         "CA", "94612", 37.8044, -122.2712),
-    ("Berkeley",        "CA", "94704", 37.8716, -122.2727),
     ("San Jose",        "CA", "95113", 37.3382, -121.8863),
-    ("Palo Alto",       "CA", "94301", 37.4419, -122.1430),
     ("Mountain View",   "CA", "94041", 37.3861, -122.0839),
-    ("Daly City",       "CA", "94014", 37.7058, -122.4622),
-    ("Redwood City",    "CA", "94063", 37.4852, -122.2364),
+    ("Sunnyvale",       "CA", "94086", 37.3688, -122.0363),
+    ("Palo Alto",       "CA", "94301", 37.4419, -122.1430),
     ("Fremont",         "CA", "94538", 37.5485, -121.9886),
     ("Hayward",         "CA", "94541", 37.6688, -122.0808),
+    ("Redwood City",    "CA", "94063", 37.4852, -122.2364),
     ("San Mateo",       "CA", "94401", 37.5630, -122.3255),
-    ("Sunnyvale",       "CA", "94086", 37.3688, -122.0363),
+    ("San Francisco",   "CA", "94103", 37.7749, -122.4194),
+    ("Daly City",       "CA", "94014", 37.7058, -122.4622),
+    ("Oakland",         "CA", "94612", 37.8044, -122.2712),
+    ("Berkeley",        "CA", "94704", 37.8716, -122.2727),
 ]
 
 stores_rows = []
@@ -130,9 +134,12 @@ rng = np.random.default_rng(SEED)
 member_rows = []
 for mid in range(1, MEMBER_COUNT + 1):
     s = stores_pd.sample(1, random_state=int(rng.integers(0, 2**31))).iloc[0]
-    # 2D gaussian around the store, ~5 mile sigma
-    m_lat = float(s.lat + rng.normal(0, 0.07))
-    m_lon = float(s.lon + rng.normal(0, 0.07))
+    # 2D gaussian around the store, ~1 mile sigma. Smaller than the
+    # previous ~5 mile sigma so members don't drift into the Bay / Pacific
+    # for the coastal Bay Area stores (SF on a peninsula, Oakland on the
+    # bay, etc.). 1 mile keeps members in the store's walkable footprint.
+    m_lat = float(s.lat + rng.normal(0, 0.015))
+    m_lon = float(s.lon + rng.normal(0, 0.015))
     spend_band = str(rng.choice(["low", "mid", "high", "whale"], p=[0.55, 0.30, 0.12, 0.03]))
     member_rows.append({
         "member_id": mid,
