@@ -21,7 +21,7 @@ no Lakebase, no Model Serving.
 - `stores` (25 rows)
 - `daily_sales_forecast` (~9,000 rows, store × date × daypart)
 - `hourly_transactions` (~18,000 rows, store × hour, last 30 days)
-- `staff_roster` (~1,500 rows, current crew snapshot)
+- `staff_roster` (~550 rows, current crew snapshot)
 
 ## Source
 

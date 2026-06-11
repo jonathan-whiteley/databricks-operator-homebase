@@ -12,7 +12,7 @@ Tables:
   - stores                  (25 rows)
   - daily_sales_forecast    (~9,000 rows)
   - hourly_transactions     (~18,000 rows)
-  - staff_roster            (~1,500 rows)
+  - staff_roster            (~550 rows)
 """
 
 # COMMAND ----------
@@ -48,7 +48,7 @@ spark.sql(f"USE SCHEMA {SCHEMA}")
 print(f"Target: {CATALOG}.{SCHEMA}")
 
 # COMMAND ----------
-# Stores dim — first 12 pinned to Bay Area cities so demos default to a
+# Stores dim: first 12 pinned to Bay Area cities so demos default to a
 # recognizable store; remaining 13 are randomized across CA.
 addr = Address("en")
 per = Person("en")
@@ -81,14 +81,14 @@ for i in range(1, STORE_COUNT + 1):
         lon = -119.0 + random.uniform(-3, 3)
     stores_rows.append({
         "store_id": i,
-        "store_name": f"LHM #{i:03d} {city}",
+        "store_name": f"Lakehouse Market #{i:03d}",
         "city": city,
         "state": state,
         "zip_code": zip_code,
         "lat": lat,
         "lon": lon,
         "manager_name": per.full_name(),
-        "opened_date": str(date(2018, 1, 1) + (date(2024, 1, 1) - date(2018, 1, 1)) * (i % 7) // 7),
+        "opened_date": date(2018, 1, 1) + (date(2024, 1, 1) - date(2018, 1, 1)) * (i % 7) // 7,
     })
 
 (spark.createDataFrame(stores_rows)

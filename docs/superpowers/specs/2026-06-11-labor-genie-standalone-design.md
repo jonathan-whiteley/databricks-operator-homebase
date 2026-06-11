@@ -35,7 +35,7 @@ The parent design doc (`2026-05-30-lakehouse-market-demo-design.md` §11) explic
 | `stores` | one row per store | 25 | `01_generate_data.py` L22-82 |
 | `daily_sales_forecast` | (store_id, date, daypart) | 9,000 (25 × 90 × 4) | L83-104 |
 | `hourly_transactions` | (store_id, ts) | 18,000 (25 × 30 × 24) | L106-115 |
-| `staff_roster` | (store_id, role, employee_name) | ~1,500 (25 × 4 × 3-8) | L117-124 |
+| `staff_roster` | (store_id, role, employee_name) | ~550 (25 × 4 × avg 5.5) | L117-124 |
 
 All four are overwrite-mode `saveAsTable` calls → safe to re-run.
 

@@ -60,7 +60,7 @@ no Lakebase, no Model Serving.
 - `stores` (25 rows)
 - `daily_sales_forecast` (~9,000 rows, store × date × daypart)
 - `hourly_transactions` (~18,000 rows, store × hour, last 30 days)
-- `staff_roster` (~1,500 rows, current crew snapshot)
+- `staff_roster` (~550 rows, current crew snapshot)
 
 ## Source
 
@@ -100,7 +100,7 @@ Tables:
   - stores                  (25 rows)
   - daily_sales_forecast    (~9,000 rows)
   - hourly_transactions     (~18,000 rows)
-  - staff_roster            (~1,500 rows)
+  - staff_roster            (~550 rows)
 """
 
 # COMMAND ----------
@@ -390,9 +390,9 @@ Expected printout:
   home_jonathan_whiteley.demos.stores                            25 rows
   home_jonathan_whiteley.demos.daily_sales_forecast           9,000 rows
   home_jonathan_whiteley.demos.hourly_transactions           18,000 rows
-  home_jonathan_whiteley.demos.staff_roster                   ~1,500 rows
+  home_jonathan_whiteley.demos.staff_roster                    ~550 rows
 ```
-(staff_roster varies 3-8 per role, expected range ~1,200-2,000.)
+(staff_roster varies 3-8 per role, expected range ~300-800.)
 
 - [ ] **Step 4: Spot-check the data via SQL Editor**
 
