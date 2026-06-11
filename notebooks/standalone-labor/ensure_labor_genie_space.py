@@ -170,3 +170,72 @@ EXAMPLE_SQLS = [
         ),
     },
 ]
+
+# COMMAND ----------
+# Labor scope: 4 tables qualified to CATALOG.SCHEMA.
+TABLES = [
+    f"{CATALOG}.{SCHEMA}.stores",
+    f"{CATALOG}.{SCHEMA}.daily_sales_forecast",
+    f"{CATALOG}.{SCHEMA}.hourly_transactions",
+    f"{CATALOG}.{SCHEMA}.staff_roster",
+]
+
+def build_serialized_space() -> dict:
+    """Build the version-2 Genie serialized_space proto. Mirrors the
+    contract from notebooks/06_ensure_genie_space.py exactly: tables under
+    data_sources, instructions as a dict with text_instructions and
+    example_question_sqls (each question/sql is a list), sample_questions
+    under config. All ids are uuid4().hex and lists are sorted by id."""
+    example_sqls = sorted(
+        [
+            {"id": uuid4().hex, "question": [e["title"]], "sql": [e["sql"]]}
+            for e in EXAMPLE_SQLS
+        ],
+        key=lambda x: x["id"],
+    )
+    sample_qs = sorted(
+        [{"id": uuid4().hex, "question": [q]} for q in SAMPLE_QUESTIONS],
+        key=lambda x: x["id"],
+    )
+    return {
+        "version": 2,
+        "data_sources": {
+            "tables": sorted(
+                [{"identifier": t} for t in TABLES],
+                key=lambda x: x["identifier"],
+            )
+        },
+        "instructions": {
+            "text_instructions": [
+                {"id": uuid4().hex, "content": [INSTRUCTIONS]}
+            ],
+            "example_question_sqls": example_sqls,
+        },
+        "config": {"sample_questions": sample_qs},
+    }
+
+# COMMAND ----------
+w = WorkspaceClient()
+payload = {
+    "title": TITLE,
+    "description": DESCRIPTION,
+    "warehouse_id": WAREHOUSE_ID,
+    "serialized_space": json.dumps(build_serialized_space()),
+}
+
+if SPACE_ID:
+    print(f"Patching existing Genie space {SPACE_ID} ...")
+    resp = w.api_client.do(
+        "PATCH",
+        f"/api/2.0/genie/spaces/{SPACE_ID}",
+        body=payload,
+    )
+    print(f"Patched: {resp.get('title')} ({resp.get('space_id')})")
+else:
+    print("Creating new Genie space ...")
+    resp = w.api_client.do("POST", "/api/2.0/genie/spaces", body=payload)
+    new_id = resp.get("space_id")
+    print(f"Created: {resp.get('title')} ({new_id})")
+    print()
+    print(f"  space_id: {new_id}")
+    print(f"  URL: {w.config.host}/genie/rooms/{new_id}")
