@@ -126,3 +126,27 @@ ht = (
     .build()
 )
 ht.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("hourly_transactions")
+
+# COMMAND ----------
+# staff_roster: current crew per store, by role. Snapshot, no time
+# dimension. 3-8 employees per (store, role).
+ROLES = ["Cashier", "Cook", "Runner", "Manager"]
+roster_rows = []
+for s in range(1, STORE_COUNT + 1):
+    for r in ROLES:
+        for _ in range(random.randint(3, 8)):
+            roster_rows.append({
+                "store_id": s,
+                "role": r,
+                "employee_name": per.full_name(),
+                "hourly_wage": round(random.uniform(15, 28), 2),
+            })
+
+(spark.createDataFrame(roster_rows)
+    .write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("staff_roster"))
+
+# COMMAND ----------
+# Summary: verify all 4 tables landed.
+for t in ["stores", "daily_sales_forecast", "hourly_transactions", "staff_roster"]:
+    n = spark.table(t).count()
+    print(f"  {CATALOG}.{SCHEMA}.{t:<28s}  {n:>8,} rows")
