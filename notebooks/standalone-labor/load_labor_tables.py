@@ -113,3 +113,16 @@ fc = (
     .withColumn("forecast_transactions", (F.rand(SEED + 1) * (900 - 40) + 40).cast("int"))
 )
 fc.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("daily_sales_forecast")
+
+# COMMAND ----------
+# hourly_transactions: last 30 days of hourly actuals (store_id, ts,
+# transactions, revenue). Random within plausible per-hour ranges.
+ht = (
+    dg.DataGenerator(spark, rows=STORE_COUNT * 30 * 24, partitions=4)
+    .withColumn("store_id", "int", minValue=1, maxValue=STORE_COUNT, random=True)
+    .withColumn("ts", "timestamp", begin="2025-10-01 00:00:00", end="2025-10-30 23:00:00")
+    .withColumn("transactions", "int", minValue=5, maxValue=120, random=True)
+    .withColumn("revenue", "double", minValue=20.0, maxValue=2200.0, random=True)
+    .build()
+)
+ht.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("hourly_transactions")
