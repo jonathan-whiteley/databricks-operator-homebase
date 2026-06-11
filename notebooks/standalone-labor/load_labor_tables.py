@@ -93,3 +93,23 @@ for i in range(1, STORE_COUNT + 1):
 
 (spark.createDataFrame(stores_rows)
     .write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("stores"))
+
+# COMMAND ----------
+# daily_sales_forecast: cross join of store × date × daypart. Synthetic
+# revenue/transactions are deterministic-by-seed within plausible ranges.
+BASE_DATE = "2025-08-01"
+END_DATE = "2025-10-29"
+DAYPARTS = ["Breakfast", "Lunch", "Dinner", "Late"]
+
+stores_df = spark.range(1, STORE_COUNT + 1).select(F.col("id").cast("int").alias("store_id"))
+dates_df = spark.sql(
+    f"SELECT explode(sequence(to_date('{BASE_DATE}'), to_date('{END_DATE}'), interval 1 day)) AS date"
+)
+dayparts_df = spark.createDataFrame([(d,) for d in DAYPARTS], "daypart string")
+
+fc = (
+    stores_df.crossJoin(dates_df).crossJoin(dayparts_df)
+    .withColumn("forecast_revenue", F.round(F.rand(SEED) * (5500 - 300) + 300, 2))
+    .withColumn("forecast_transactions", (F.rand(SEED + 1) * (900 - 40) + 40).cast("int"))
+)
+fc.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("daily_sales_forecast")
