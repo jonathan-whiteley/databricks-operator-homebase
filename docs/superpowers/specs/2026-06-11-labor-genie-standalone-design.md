@@ -4,7 +4,9 @@
 **Owner**: jonathan.whiteley@databricks.com
 **Target workspace**: https://adb-2548836972759138.18.azuredatabricks.net (logfood)
 **Target schema**: `home_jonathan_whiteley.demos`
-**Status**: design approved, plan pending
+**Status**: deployed
+**Created Genie space**: `01f1666edb831cd2a09eca7ca707b092` ([open](https://adb-2548836972759138.18.azuredatabricks.net/genie/rooms/01f1666edb831cd2a09eca7ca707b092))
+**Warehouse**: `c6c6f1d39f7312f0` (2X-Small serverless)
 
 ## 1. Goal
 
