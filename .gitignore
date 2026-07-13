@@ -28,3 +28,6 @@ src/lakehouse_market/static/
 .DS_Store
 .idea/
 .vscode/
+
+# Local git worktrees
+.worktrees/
