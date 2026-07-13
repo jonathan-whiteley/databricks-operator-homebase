@@ -1,6 +1,6 @@
 // ui/src/components/db/Sidebar.tsx
 //
-// 236px navy-900 left rail. Apps + Operations + Reference sections with
+// 236px navy-900 left rail. Operations + Reference sections with
 // optional outstanding-count badges, and a manager profile chip at the
 // bottom. Active state is driven by react-router's NavLink, so URL changes
 // propagate automatically. Badge counts come from /api/today/brief (shared
@@ -14,14 +14,12 @@ import Icon, { type IconName } from "./Icon";
 import Logo from "./Logo";
 
 type NavKey =
-  | "apps"
   | "today"
   | "labor"
   | "inventory"
   | "equipment"
   | "members"
   | "feedback"
-  | "talk-track"
   | "deck"
   | "architecture";
 
@@ -31,10 +29,6 @@ type NavEntry = {
   icon: IconName;
   key: NavKey;
 };
-
-const APPS: NavEntry[] = [
-  { to: "/apps", label: "Apps", icon: "grid", key: "apps" },
-];
 
 const OPERATIONS: NavEntry[] = [
   { to: "/today", label: "Today", icon: "today", key: "today" },
@@ -46,7 +40,6 @@ const OPERATIONS: NavEntry[] = [
 ];
 
 const REFERENCE: NavEntry[] = [
-  { to: "/reference/talk-track", label: "Talk Track", icon: "book", key: "talk-track" },
   { to: "/reference/deck", label: "Reference Deck", icon: "screen", key: "deck" },
   {
     to: "/reference/architecture",
@@ -122,11 +115,6 @@ export default function Sidebar() {
           overflow: "auto",
         }}
       >
-        <SectionLabel>Apps</SectionLabel>
-        {APPS.map((it) => (
-          <NavRow key={it.to} entry={it} count={0} />
-        ))}
-        <SectionDivider />
         <SectionLabel>Operations</SectionLabel>
         {OPERATIONS.map((it) => (
           <NavRow key={it.to} entry={it} count={countFor(it.key)} />

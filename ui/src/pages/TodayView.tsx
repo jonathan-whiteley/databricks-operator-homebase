@@ -104,7 +104,10 @@ const MODULE_ROUTE: Record<Module, string> = {
 const STORE_MANAGER = "Maya";
 
 function formatAnchorDate(): string {
-  const d = new Date(2025, 9, 30); // demo data window ends 2025-10-30
+  // Use the real current date so the daily brief matches the TopBar clock.
+  // (Previously pinned to 2025-10-30, the demo data window end, which read as
+  // a conflicting "Thursday, Oct 30" against the live header date.)
+  const d = new Date();
   return d.toLocaleDateString("en-US", {
     weekday: "long",
     month: "short",

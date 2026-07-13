@@ -78,7 +78,11 @@ export default function LaborView() {
   );
   const dayparts = useMemo(() => data?.dayparts ?? [], [data]);
   const date = data?.date ?? today;
-  const dayLabel = formatDayLabel(date);
+  // Label reflects the real current date (matching the TopBar clock) rather
+  // than the backend demo-anchor date, which otherwise showed a conflicting
+  // day (e.g. "Thursday October 30" vs the header's actual date). The ISO
+  // `date` above is still used unchanged for override payloads and keys.
+  const dayLabel = formatDayLabel(today);
 
   // Per-card override state lives here so the AIRec quick-action can prefill
   // the lunch slot without each card needing to subscribe to anything.

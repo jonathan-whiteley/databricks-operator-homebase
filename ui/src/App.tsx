@@ -98,8 +98,8 @@ function Shell() {
             }
           >
             <Routes>
-              {/* / lands on the Apps launcher (DAIS booth default) */}
-              <Route path="/" element={<Navigate to="/apps" replace />} />
+              {/* / lands on the Today operations view (Apps tab retired) */}
+              <Route path="/" element={<Navigate to="/today" replace />} />
               <Route path="/apps" element={<AppsLanding />} />
               <Route path="/today" element={<TodayView />} />
                   <Route path="/labor" element={<LaborView />} />
