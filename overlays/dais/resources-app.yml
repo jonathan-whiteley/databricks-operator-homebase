@@ -1,0 +1,29 @@
+# Databricks App resource — DAIS WORKSPACE OVERLAY.
+# Copy this file over /resources/app.yml before running setup.sh with
+# DAB_TARGET=dais. The root /resources/app.yml uses the standard `database`
+# resource binding (works on fevm where the deployer is a workspace admin);
+# this dais overlay swaps in a `secret` binding for the static Postgres
+# password instead — see overlays/dais/app.yaml for context.
+
+resources:
+  apps:
+    homebase:
+      name: ${var.app_name}
+      source_code_path: ${workspace.file_path}
+      resources:
+        - name: warehouse-default
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        # No `database` binding — the dais deployer SP can't grant the App
+        # SP permission on the Lakebase instance (Apps service rejects with
+        # "User does not have permission to grant permissions for added
+        # resource"). Instead the App SP is granted CAN_MANAGE on the
+        # instance via permissions update, a Postgres role is provisioned
+        # manually with databricks_superuser membership, pg_native_login is
+        # enabled on the instance, and the password lives in this secret.
+        - name: lakebase-pw
+          secret:
+            scope: lakehouse-market
+            key: lakebase_password
+            permission: READ

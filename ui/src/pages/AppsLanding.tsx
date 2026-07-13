@@ -44,7 +44,7 @@ const APPS_BASE: AppEntry[] = [
   {
     id: "contract",
     name: "Contract Recon",
-    industry: "Travel & Hospitality",
+    industry: "Travel / Retail / CPG",
     tag: "Catch unauthorized charges.",
     icon: "doc",
     accent: "var(--db-blue-600)",

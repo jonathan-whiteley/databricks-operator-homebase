@@ -1,0 +1,57 @@
+# Databricks App start command — DAIS WORKSPACE OVERLAY.
+# Copy this file over /app.yaml before running `bash scripts/setup.sh` with
+# DAB_TARGET=dais. The root /app.yaml is the fevm (DEFAULT-workspace) config;
+# dais needs different catalog/schema, the workspace-specific Genie space id,
+# and the pg_native_login Lakebase workaround (the deployer SP on
+# db-dais-2026 isn't a workspace admin, so the standard `database` resource
+# binding fails — we use a lakebase-pw secret binding instead).
+#
+# Pair with overlays/dais/resources-app.yml (copy over /resources/app.yml).
+command:
+  - uvicorn
+  - lakehouse_market.app:app
+  - --host=0.0.0.0
+  - --port=8000
+
+env:
+  - name: LHM_CATALOG
+    value: retail_consumer_goods
+  - name: LHM_SCHEMA
+    value: tth_ops_homebase
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: warehouse-default
+  - name: LABOR_ENDPOINT
+    # dais is a production-mode target so no dev_<user>_ prefix.
+    value: lhm-labor-recommender
+  - name: FM_ENDPOINT
+    value: databricks-claude-sonnet-4-6
+  - name: GENIE_SPACE_ID
+    # Set by scripts/setup.sh after notebooks/06_ensure_genie_space.py runs.
+    value: "01f160fd844418bcab89a57842a73f59"
+  - name: DEMO_ANCHOR_DATE
+    value: "2025-10-30"
+  - name: LHM_QUERY_CACHE_TTL
+    value: "86400"
+  # /apps launcher: dais-internal URLs for the sibling industry apps.
+  - name: CONTRACT_RECON_URL
+    value: "https://brickyard-contract-recon-7474650217702955.aws.databricksapps.com"
+  - name: COMPUTER_VISION_URL
+    value: "https://lens-iq-7474650217702955.aws.databricksapps.com"
+  - name: IRREGULAR_OPS_URL
+    value: "https://brick-airlines-irops-app-7474650217702955.aws.databricksapps.com"
+  - name: LAKEBASE_INSTANCE
+    value: "lakehouse-market-app-db"
+  - name: LAKEBASE_DB
+    value: "databricks_postgres"
+  - name: LAKEBASE_HOST
+    # read_write_dns from the dais Lakebase instance.
+    value: "ep-aged-dawn-d23bdxwf.database.us-east-1.cloud.databricks.com"
+  - name: LAKEBASE_USER
+    # App SP client_id on dais. Matches the manually-provisioned Postgres
+    # role name; auth uses the static password below (instance was patched
+    # to enable_pg_native_login=true to support this fallback).
+    value: "d2117218-74ed-4c4b-b39c-35ce96b5b9bf"
+  - name: LAKEBASE_PASSWORD
+    # Sourced from the lakebase-pw secret binding in resources/app.yml,
+    # which points at the lakehouse-market scope's lakebase_password key.
+    valueFrom: lakebase-pw

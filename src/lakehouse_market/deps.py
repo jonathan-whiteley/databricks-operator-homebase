@@ -64,9 +64,13 @@ async def get_lakebase_pool() -> asyncpg.Pool:
         s = get_settings()
         host = s.lakebase_host
         user = s.lakebase_user
-        # If env auth didn't fill the static password slot (Lakebase doesn't
-        # support static passwords), mint a fresh OAuth token instead.
-        password = s.lakebase_password or await _mint_lakebase_token()
+        # Lakebase auth uses short-lived OAuth tokens (~1h TTL), not static
+        # passwords — including the token the `database` resource binding
+        # injects as PGPASSWORD at startup. Capturing one token here means
+        # every new connection fails with InvalidPasswordError once it expires
+        # (~1h after the app boots). Instead, hand asyncpg a CALLABLE: it
+        # invokes it on each new physical connection, so every connection
+        # authenticates with a freshly minted token.
         async def _init_conn(conn: asyncpg.Connection) -> None:
             # Route all unqualified table references to the schema the SP owns.
             await conn.execute("SET search_path TO lhm_app, public")
@@ -75,10 +79,13 @@ async def get_lakebase_pool() -> asyncpg.Pool:
             host=host,
             database=s.lakebase_db,
             user=user,
-            password=password,
+            password=_mint_lakebase_token,
             ssl="require",
             min_size=1,
             max_size=4,
+            # Recycle idle connections well within the token TTL so a pooled
+            # connection never outlives its credential window.
+            max_inactive_connection_lifetime=1800,
             init=_init_conn,
         )
     return _pool
