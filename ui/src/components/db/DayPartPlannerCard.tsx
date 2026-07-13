@@ -102,12 +102,21 @@ function computeStaffing(dp: DaypartId, revenue: number): Staffing {
     remaining--;
     i++;
   }
-  const cost =
+  const cost = costFromRoles(dp, roles);
+  return { headcount, roles, cost, hours };
+}
+
+/* Labor cost for an explicit role map (role x hours x rate) for one daypart.
+   Kept next to computeStaffing so manual crew edits price the same way the
+   forecast-derived mix does. */
+function costFromRoles(dp: DaypartId, roles: Record<RoleId, number>): number {
+  const hours = DP_HOURS[dp];
+  return (
     roles.cook * hours * ROLE_RATES.cook +
     roles.cashier * hours * ROLE_RATES.cashier +
     roles.lead * hours * ROLE_RATES.lead +
-    roles.manager * hours * ROLE_RATES.manager;
-  return { headcount, roles, cost, hours };
+    roles.manager * hours * ROLE_RATES.manager
+  );
 }
 
 /* ============================ Theming ============================ */
@@ -182,14 +191,27 @@ function roleItems(accent: string): RoleItem[] {
   ];
 }
 
+const ROLE_MIN = 0;
+const ROLE_MAX = 20;
+
 function RoleStack({
   roles,
   accent,
+  editable,
+  onChangeRole,
 }: {
   roles: Record<RoleId, number>;
   accent: string;
+  /** When true, show all four roles with +/- steppers instead of the dot string. */
+  editable?: boolean;
+  /** Set the absolute count for a role (already clamped by the row). */
+  onChangeRole?: (role: RoleId, next: number) => void;
 }) {
-  const items = roleItems(accent).filter((it) => roles[it.k] > 0);
+  // Read-only: only show roles with a non-zero count (keeps the design's
+  // compact stack). Editable: show all four so a role can be added from zero.
+  const items = editable
+    ? roleItems(accent)
+    : roleItems(accent).filter((it) => roles[it.k] > 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {items.map((it) => (
@@ -214,34 +236,110 @@ function RoleStack({
           <span style={{ flex: 1, fontSize: 13, color: "var(--db-navy-800)" }}>
             {it.label}
           </span>
-          <div style={{ display: "flex", gap: 3 }}>
-            {Array.from({ length: roles[it.k] }).map((_, i) => (
-              <span
-                key={i}
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: 999,
-                  background: it.color,
-                }}
+          {editable ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <RoleStepButton
+                label="−"
+                disabled={roles[it.k] <= ROLE_MIN}
+                onClick={() =>
+                  onChangeRole?.(
+                    it.k,
+                    Math.max(ROLE_MIN, roles[it.k] - 1),
+                  )
+                }
               />
-            ))}
-          </div>
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              fontWeight: 600,
-              color: "var(--db-navy-800)",
-              minWidth: 14,
-              textAlign: "right",
-            }}
-          >
-            {roles[it.k]}
-          </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--db-navy-800)",
+                  minWidth: 16,
+                  textAlign: "center",
+                }}
+              >
+                {roles[it.k]}
+              </span>
+              <RoleStepButton
+                label="+"
+                disabled={roles[it.k] >= ROLE_MAX}
+                onClick={() =>
+                  onChangeRole?.(
+                    it.k,
+                    Math.min(ROLE_MAX, roles[it.k] + 1),
+                  )
+                }
+              />
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: 3 }}>
+                {Array.from({ length: roles[it.k] }).map((_, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: 999,
+                      background: it.color,
+                    }}
+                  />
+                ))}
+              </div>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--db-navy-800)",
+                  minWidth: 14,
+                  textAlign: "right",
+                }}
+              >
+                {roles[it.k]}
+              </span>
+            </>
+          )}
         </div>
       ))}
     </div>
+  );
+}
+
+/* Compact +/- stepper button, styled to match the card's chrome. */
+function RoleStepButton({
+  label,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label === "+" ? "Add one" : "Remove one"}
+      style={{
+        width: 22,
+        height: 22,
+        borderRadius: 6,
+        border: "1px solid var(--db-gray-lines)",
+        background: "#fff",
+        color: disabled ? "var(--db-gray-lines)" : "var(--db-navy-800)",
+        cursor: disabled ? "default" : "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        font: "600 14px/1 var(--font-sans)",
+        padding: 0,
+        flexShrink: 0,
+      }}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -308,6 +406,88 @@ function MiniStat({
   );
 }
 
+/* ============================ Labor % ring ============================ */
+// QSR labor target is ~28% of sales; color the ring against it.
+const LABOR_TARGET = 0.28;
+
+function LaborRing({ pct }: { pct: number }) {
+  const size = 54;
+  const stroke = 6;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(1, pct));
+  const color =
+    clamped <= LABOR_TARGET
+      ? "var(--db-green-600)"
+      : clamped <= LABOR_TARGET + 0.05
+        ? "var(--db-yellow-700)"
+        : "var(--db-lava-600)";
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 3,
+      }}
+    >
+      <div style={{ position: "relative", width: size, height: size }}>
+        <svg width={size} height={size}>
+          {/* rotate so the arc starts at 12 o'clock */}
+          <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke="var(--db-gray-lines)"
+              strokeWidth={stroke}
+            />
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke={color}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={circ}
+              strokeDashoffset={circ * (1 - clamped)}
+            />
+          </g>
+        </svg>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "var(--font-mono)",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--db-navy-800)",
+            fontFeatureSettings: '"tnum"',
+          }}
+        >
+          {Math.round(clamped * 100)}%
+        </div>
+      </div>
+      <span
+        style={{
+          fontSize: 9,
+          fontWeight: 600,
+          color: "var(--db-gray-text)",
+          textTransform: "uppercase",
+          letterSpacing: "0.07em",
+        }}
+      >
+        labor %
+      </span>
+    </div>
+  );
+}
+
 /* ============================ Day-part planner card ============================ */
 export type DayPartPlannerCardProps = {
   /** Display label as it comes back from the API ("Breakfast" / "Lunch" / ...). */
@@ -361,21 +541,41 @@ export default function DayPartPlannerCard({
   const [locked, setLocked] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // Reset everything when the underlying daypart / date / store changes.
+  // Manual per-role crew edits. When non-null, this takes TOP precedence over
+  // both the forecast-derived and AI-derived mix.
+  const [roleOverride, setRoleOverride] = useState<Record<RoleId, number> | null>(
+    null,
+  );
+
+  // Reset everything when the underlying daypart / date / store changes so a
+  // fresh forecast recompute wins.
   useEffect(() => {
     setLocked(false);
     setEditing(false);
     setDraft("");
     setLocalOverride(null);
     setAiHeadcount(null);
+    setRoleOverride(null);
   }, [storeId, date, daypart, forecast]);
 
   // Staffing math: the design's compute is good enough for the visual; we
   // swap in the served model's headcount when Recompute returns.
   const base = computeStaffing(id, forecast);
   const localCur = computeStaffing(id, revenue);
-  const cur: Staffing =
-    aiHeadcount != null
+  const crewEdited = roleOverride != null;
+  // Precedence: manual crew edit > AI headcount > forecast-derived.
+  const cur: Staffing = crewEdited
+    ? {
+        ...localCur,
+        roles: roleOverride,
+        headcount:
+          roleOverride.cook +
+          roleOverride.cashier +
+          roleOverride.lead +
+          roleOverride.manager,
+        cost: costFromRoles(id, roleOverride),
+      }
+    : aiHeadcount != null
       ? {
           ...localCur,
           headcount: aiHeadcount,
@@ -384,7 +584,7 @@ export default function DayPartPlannerCard({
           cost:
             aiHeadcount *
             DP_HOURS[id] *
-            // Blended rate ≈ weighted avg of role rates by ROLE_MIX[id].
+            // Blended rate is the weighted avg of role rates by ROLE_MIX[id].
             (ROLE_MIX[id].cook * ROLE_RATES.cook +
               ROLE_MIX[id].cashier * ROLE_RATES.cashier +
               ROLE_MIX[id].lead * ROLE_RATES.lead +
@@ -394,7 +594,17 @@ export default function DayPartPlannerCard({
   const hcD = cur.headcount - base.headcount;
   const costD = cur.cost - base.cost;
 
+  // "Adjusted" = revenue overridden OR crew manually edited. Drives the badge,
+  // the accent border, and the override-diff strip below.
+  const adjusted = isOverridden || crewEdited;
+
+  // Labor cost as a fraction of sales; responds to both revenue and crew edits
+  // via the effective cost above.
+  const laborPct = revenue > 0 ? cur.cost / revenue : 0;
+
   function applyOverride(next: number | null) {
+    // A revenue change re-derives the crew mix, so drop any manual crew edit.
+    setRoleOverride(null);
     if (override === undefined) setLocalOverride(next);
     onOverrideChange?.(next);
   }
@@ -424,6 +634,8 @@ export default function DayPartPlannerCard({
         daypart,
       });
       setAiHeadcount(r.data.headcount);
+      // A fresh AI headcount supersedes any manual crew edit.
+      setRoleOverride(null);
     } catch {
       // Serving endpoint may be cold — silently fall back to the local
       // compute (already on screen).
@@ -435,12 +647,15 @@ export default function DayPartPlannerCard({
 
   async function handleConfirm(note: string) {
     try {
+      // Send the EFFECTIVE headcount so a locked card persists any manual crew
+      // edit. The per-role split is intentionally NOT sent: persisting the mix
+      // is a backend change tracked as a separate follow-up (out of scope).
       await api.post("/labor/override", {
         store_id: storeId,
         date,
         daypart,
         headcount: cur.headcount,
-        note: note || (isOverridden ? "manager override" : null),
+        note: note || (adjusted ? "manager override" : null),
       });
       setLocked(true);
       setConfirmOpen(false);
@@ -461,7 +676,7 @@ export default function DayPartPlannerCard({
 
   const borderColor: CSSProperties["border"] = locked
     ? `2px solid var(--db-green-600)`
-    : isOverridden
+    : adjusted
       ? `2px solid ${theme.deep}`
       : "1px solid var(--db-gray-lines)";
 
@@ -474,7 +689,7 @@ export default function DayPartPlannerCard({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        boxShadow: isOverridden || locked ? "var(--shadow-md)" : "none",
+        boxShadow: adjusted || locked ? "var(--shadow-md)" : "none",
         position: "relative",
       }}
     >
@@ -500,7 +715,7 @@ export default function DayPartPlannerCard({
           <Icon name="check" size={10} color="#fff" stroke={2.4} /> Locked
         </div>
       )}
-      {!locked && isOverridden && (
+      {!locked && adjusted && (
         <div
           style={{
             position: "absolute",
@@ -733,26 +948,36 @@ export default function DayPartPlannerCard({
         )}
       </div>
 
-      {/* crew + cost ---------------------------------------------------- */}
+      {/* crew + cost + labor % ring ------------------------------------- */}
       <div
         style={{
           padding: "0 18px",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 12,
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
         }}
       >
-        <MiniStat
-          label="Crew"
-          value={cur.headcount}
-          delta={isOverridden || aiHeadcount != null ? hcD : null}
-        />
-        <MiniStat
-          label="Labor cost"
-          value={moneyK(cur.cost)}
-          delta={isOverridden || aiHeadcount != null ? costD : null}
-          isMoney
-        />
+        <div
+          style={{
+            flex: 1,
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12,
+          }}
+        >
+          <MiniStat
+            label="Crew"
+            value={cur.headcount}
+            delta={adjusted || aiHeadcount != null ? hcD : null}
+          />
+          <MiniStat
+            label="Labor cost"
+            value={moneyK(cur.cost)}
+            delta={adjusted || aiHeadcount != null ? costD : null}
+            isMoney
+          />
+        </div>
+        <LaborRing pct={laborPct} />
       </div>
 
       {/* role mix ------------------------------------------------------- */}
@@ -771,24 +996,49 @@ export default function DayPartPlannerCard({
           }}
         >
           <span>The crew</span>
-          {aiHeadcount != null && (
+          {crewEdited ? (
             <span
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 9,
-                color: "var(--db-blue-700)",
+                color: theme.deep,
                 letterSpacing: "0.04em",
               }}
             >
-              AI prediction
+              Edited
             </span>
+          ) : (
+            aiHeadcount != null && (
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9,
+                  color: "var(--db-blue-700)",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                AI prediction
+              </span>
+            )
           )}
         </div>
-        <RoleStack roles={cur.roles} accent={theme.deep} />
+        <RoleStack
+          roles={cur.roles}
+          accent={theme.deep}
+          editable={!locked}
+          onChangeRole={(role, next) => {
+            // Seed the override from the current effective mix so the first
+            // edit keeps the other roles intact, then apply the clamped count.
+            setRoleOverride((prev) => {
+              const start = prev ?? { ...cur.roles };
+              return { ...start, [role]: next };
+            });
+          }}
+        />
       </div>
 
       {/* override diff strip + actions row ------------------------------ */}
-      {isOverridden && !locked && (
+      {adjusted && !locked && (
         <div
           style={{
             margin: "14px 18px 0",
@@ -813,7 +1063,11 @@ export default function DayPartPlannerCard({
           </span>
           <button
             type="button"
-            onClick={() => applyOverride(null)}
+            onClick={() => {
+              // Clear BOTH the revenue override and the manual crew override.
+              applyOverride(null);
+              setRoleOverride(null);
+            }}
             style={{
               background: "transparent",
               border: 0,
@@ -836,7 +1090,7 @@ export default function DayPartPlannerCard({
           display: "flex",
           alignItems: "center",
           gap: 8,
-          marginTop: isOverridden && !locked ? 8 : 0,
+          marginTop: adjusted && !locked ? 8 : 0,
         }}
       >
         <button
@@ -914,7 +1168,12 @@ export default function DayPartPlannerCard({
   );
 }
 
-/* Helper exported for the parent so totals stay in sync with the card. */
+/* Helper exported for the parent so totals stay in sync with the card.
+   KNOWN LIMITATION: the page-level "Approve all" totals in LaborView are
+   computed from staffingFor(daypart, revenue) and will NOT reflect a card's
+   manual per-role crew edits (roleOverride is card-local state, not lifted to
+   the parent). This is intentional and left as-is; persisting/aggregating the
+   per-role mix is a separate follow-up. */
 export function staffingFor(daypart: string, revenue: number): Staffing {
   return computeStaffing(daypartId(daypart), revenue);
 }
