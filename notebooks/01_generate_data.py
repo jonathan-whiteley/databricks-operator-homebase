@@ -13,8 +13,8 @@ from mimesis import Address, Person
 from _gen_lib import DAYPART_LABELS, SEED, STORE_COUNT
 import random
 
-CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "retail_consumer_goods"  # type: ignore
-SCHEMA  = dbutils.widgets.get("schema")  if "schema"  in dbutils.widgets.getAll() else "tth_ops_homebase"  # type: ignore
+CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "main"  # type: ignore
+SCHEMA  = dbutils.widgets.get("schema")  if "schema"  in dbutils.widgets.getAll() else "lakehouse_market"  # type: ignore
 spark.sql(f"USE CATALOG {CATALOG}")
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
 spark.sql(f"USE SCHEMA {SCHEMA}")

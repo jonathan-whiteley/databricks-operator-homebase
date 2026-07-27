@@ -242,7 +242,7 @@ const INITIAL_NODES: Node[] = [
     320,
     260,
     "Unity Catalog",
-    "jdub_demo.lakehouse_market · 21 tables · 6 domains",
+    "main.lakehouse_market · 21 tables · 6 domains",
     "inventory",
     "uc",
   ),
