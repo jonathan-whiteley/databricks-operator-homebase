@@ -206,7 +206,7 @@ function HeaderNode({ data }: NodeProps) {
 
 const nodeTypes = { card: CardNode, header: HeaderNode };
 
-// Column headers — fixed at the top of each column to give the layered feel.
+// Column headers: fixed at the top of each column to give the layered feel.
 const HEADER_Y = -20;
 const HEADERS: Node[] = [
   header("hdr-source", 0, "Source"),
@@ -229,14 +229,14 @@ function header(id: string, x: number, label: string): Node {
 // One source row per UC domain so every Source → UC edge is a clean horizontal.
 const INITIAL_NODES: Node[] = [
   ...HEADERS,
-  // Col 1 — Sources (each row aligned with its UC target row)
+  // Col 1: Sources (each row aligned with its UC target row)
   card("src-pos", 0, 60, "POS Transactions", "Daily orders + items", "cash", "source"),
   card("src-loyalty", 0, 160, "Loyalty Members", "50k members + tiers", "members", "source"),
   card("src-skus", 0, 260, "SKU Catalog", "800 SKUs + vendors", "box", "source"),
   card("src-reviews", 0, 360, "Guest Reviews", "30k reviews", "star", "source"),
   card("src-iot", 0, 460, "Equipment Telemetry", "~600 units · IoT", "thermo", "source"),
 
-  // Col 2 — Unity Catalog (one consolidated node, centered)
+  // Col 2: Unity Catalog (one consolidated node, centered)
   card(
     "uc",
     320,
@@ -247,14 +247,14 @@ const INITIAL_NODES: Node[] = [
     "uc",
   ),
 
-  // Col 3 — Compute / Serve (includes Lakebase Postgres as the operational store)
+  // Col 3: Compute / Serve (includes Lakebase Postgres as the operational store)
   card("sql-warehouse", 640, 60, "SQL Warehouse", "Serverless · auto-stop 120m", "spark", "warehouse"),
   card("labor-model", 640, 180, "Labor Model (UC)", "labor_model_coefficients · ElasticNet", "labor", "uc"),
   card("fm", 640, 300, "Foundation Models", "Claude Sonnet 4.6 · Llama 3.3", "spark", "ml"),
   card("genie-space", 640, 420, "Genie Space", "lhm-ops-assistant · all 21 tables", "spark", "genie"),
   card("lakebase", 640, 560, "Lakebase Postgres", "lhm_app · 5 write tables", "diagram", "lakebase"),
 
-  // Col 4 — Databricks App (combined React + FastAPI)
+  // Col 4: Databricks App (combined React + FastAPI)
   card("app", 960, 260, "Databricks App", "React + FastAPI · 8 routers", "screen", "app"),
 ];
 
@@ -325,7 +325,7 @@ const INITIAL_EDGES: Edge[] = [
   edge("uc", "fm", { color: LAYER.ml.fg, label: "sentiment labels" }),
   edge("uc", "genie-space", { color: LAYER.genie.fg }),
 
-  // Compute → App (live read paths — animated)
+  // Compute → App (live read paths, animated)
   edge("sql-warehouse", "app", { color: LAYER.warehouse.fg, animated: true }),
   edge("labor-model", "app", { color: LAYER.uc.fg, animated: true }),
   edge("fm", "app", { color: LAYER.ml.fg, animated: true }),
