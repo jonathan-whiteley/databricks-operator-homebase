@@ -18,7 +18,7 @@ class Settings(BaseModel):
     catalog: str = "main"
     schema_name: str = "lakehouse_market"
     lakebase_host: str = ""
-    lakebase_db: str = "homebase"
+    lakebase_db: str = "databricks_postgres"
     lakebase_user: str = ""
     lakebase_password: str = ""
     genie_space_id: str = ""

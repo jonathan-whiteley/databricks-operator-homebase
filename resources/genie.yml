@@ -1,8 +1,10 @@
 # Genie space placeholder.
-# Genie spaces are not yet a first-class DAB resource; the space is created
-# manually once via the workspace UI, scoped to the 21 UC tables listed in
-# docs/superpowers/specs/2026-05-30-lakehouse-market-demo-design.md §8.
-# After creation, set var.genie_space_id (or the GENIE_SPACE_ID env var on
-# the app) and re-deploy. See README.md "First-time deploy".
+# Genie spaces are not yet a first-class DAB resource; the space is managed
+# by notebooks/06_ensure_genie_space.py (idempotent: creates on first run,
+# PATCHes on subsequent runs). The init job runs this notebook as the final
+# task after all 21 UC tables exist. On completion the notebook writes the
+# space id into the UC app_config table (config_key='genie_space_id'). The
+# app reads that value at runtime via app_config.py -- no hardcoded id, no
+# manual app.yaml rewrite needed after first deploy.
 
 resources: {}

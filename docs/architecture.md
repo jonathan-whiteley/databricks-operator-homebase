@@ -32,7 +32,7 @@ Deep reference for the demo internals. For setup, see the root [README](../READM
 - **Lakebase Postgres** instance `lakehouse-market-app-db`, schema `lhm_app` (SP-owned) -- 5 write tables.
 - **Labor recommendations** are computed in-process from a `labor_model_coefficients` table written by the init job into UC. There is no Model Serving endpoint.
 - **Foundation Models**: `databricks-claude-sonnet-4-6` for the Feedback weekly digest. `databricks-meta-llama-3-3-70b-instruct` for batch review labeling.
-- **Genie**: one shared space `lhm-ops-assistant` scoped over all 21 UC tables. Embedded as a right slide-over with route-derived `tab_id`. The init job creates the space and writes the space id into a UC `app_config` table; `scripts/bootstrap.sh` reads that table and wires `GENIE_SPACE_ID` into the app.
+- **Genie**: one shared space `lhm-ops-assistant` scoped over all 21 UC tables. Embedded as a right slide-over with route-derived `tab_id`. The init job creates the space and writes the space id into a UC `app_config` table; the app resolves the id directly from `app_config` at runtime via `app_config.py` (env `GENIE_SPACE_ID` is an optional local-dev override only).
 
 ---
 
@@ -56,7 +56,7 @@ For the win-back bulk action, the backend uses asyncpg's `executemany` to insert
 |---|---|
 | Space spec (tables + sample qs + example SQLs + instructions) | `notebooks/06_ensure_genie_space.py` -- idempotent: creates new on first run, PATCHes existing on subsequent runs |
 | Serialized space proto | `version: 2` with sorted uuid-keyed `data_sources.tables`, `instructions.text_instructions`, `instructions.example_question_sqls`, `config.sample_questions` |
-| Genie space id | The init job writes the created space id into a UC `app_config` table. `scripts/bootstrap.sh` reads it and passes it to the app as `GENIE_SPACE_ID`. |
+| Genie space id | The init job writes the created space id into a UC `app_config` table. The app reads it directly from `app_config` at runtime via `app_config.py` (`GENIE_SPACE_ID` env is an optional local-dev override). |
 | Permission grant | `PUT /api/2.0/permissions/genie/{space_id}` with `CAN_RUN` for the App SP (done by `scripts/bootstrap.sh`) |
 | App -> Genie | `routers/genie.py:ask()` POSTs `/api/2.0/genie/spaces/{id}/start-conversation`, polls `/messages/{id}` until COMPLETED, extracts `attachments[].query.description` + a 5-row data preview |
 | Frontend | `state/genie-panel.tsx` derives `tab_id` from the current route, sends `{ tab_id, store_id, question }` to `/api/genie/ask` |

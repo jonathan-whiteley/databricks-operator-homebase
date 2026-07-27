@@ -5,8 +5,10 @@ Ensures the Lakehouse Market · Homebase Genie space exists and is current.
 Idempotent:
   - If `space_id` widget is set (or env GENIE_SPACE_ID is non-empty),
     PATCHes that space with the spec defined below.
-  - Otherwise CREATEs a new space and prints the new id. Capture it and
-    set `GENIE_SPACE_ID` env on the App so future deploys are idempotent.
+  - Otherwise CREATEs a new space, writes the new id into the UC app_config
+    table (config_key='genie_space_id'), and grants the App SP CAN_RUN.
+    The app reads the id from app_config at runtime via app_config.py -- no
+    manual env var update or app.yaml rewrite required.
 
 DAB has no first-class GenieSpace resource yet, so this notebook is the
 artifact that keeps the space declarative. Lifted from the labor-iq
@@ -248,9 +250,8 @@ else:
     resp = w.api_client.do("POST", "/api/2.0/genie/spaces", body=payload)
     new_id = resp.get("space_id")
     print(f"Created: {resp.get('title')} ({new_id})")
-    print()
-    print(f"  Set this on the App as GENIE_SPACE_ID: {new_id}")
     print(f"  URL: {w.config.host}/genie/rooms/{new_id}")
+    print("  Space id will be written to app_config table; app resolves it at runtime.")
 
 # COMMAND ----------
 # Self-wire: persist the space id so the app resolves it from UC (no hardcoded
