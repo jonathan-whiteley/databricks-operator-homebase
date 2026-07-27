@@ -27,6 +27,9 @@ variables:
   genie_space_id:
     description: Genie space id; populated after first manual Genie space creation
     default: ""
+  app_sp_id:
+    description: App service principal client id for the CAN_RUN grant on the Genie space (optional; passed at bundle run time).
+    default: ""
 
 include:
   - resources/*.yml
