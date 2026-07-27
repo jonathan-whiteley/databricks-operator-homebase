@@ -52,10 +52,6 @@ variables:
   irregular_ops_url:
     description: Optional sibling-app URL for the /apps launcher (hidden when empty).
     default: ""
-  user_email:
-    description: Deployer email for run-as; supplied by bootstrap via databricks current-user me.
-    default: ""
-
 include:
   - resources/*.yml
 

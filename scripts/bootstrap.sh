@@ -40,8 +40,7 @@ log "Building UI"
 make build >/dev/null
 log "Deploying bundle (app + Lakebase instance + init job)"
 databricks bundle deploy "${TARGET_ARGS[@]}" \
-  --var "warehouse_id=$WAREHOUSE_ID" --var "catalog=$LHM_CATALOG" --var "schema=$LHM_SCHEMA" \
-  --var "user_email=$(databricks current-user me "${TARGET_ARGS[@]}" -o json | jq -r '.userName')"
+  --var "warehouse_id=$WAREHOUSE_ID" --var "catalog=$LHM_CATALOG" --var "schema=$LHM_SCHEMA"
 
 # 3. grants
 log "Granting App SP access to $LHM_CATALOG.$LHM_SCHEMA"

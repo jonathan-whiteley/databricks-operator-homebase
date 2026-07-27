@@ -7,4 +7,4 @@ resources:
   database_instances:
     homebase_db:
       name: ${var.lakebase_instance}
-      capacity: CU_1
+      capacity: ${var.lakebase_capacity}

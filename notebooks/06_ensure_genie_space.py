@@ -32,6 +32,7 @@ try:
     dbutils.widgets.text("catalog", "", "Unity Catalog catalog")
     dbutils.widgets.text("schema", "", "Schema within catalog")
     dbutils.widgets.text("warehouse_id", "", "SQL warehouse id for the Genie space")
+    dbutils.widgets.text("genie_space_title", "", "Title for the Genie space")
 except NameError:
     pass
 
@@ -49,7 +50,7 @@ SCHEMA = _widget("schema", "lakehouse_market")
 WAREHOUSE_ID = _widget("warehouse_id", "")
 if not WAREHOUSE_ID:
     raise RuntimeError("warehouse_id widget / WAREHOUSE_ID env must be set for Genie space creation")
-TITLE = "lhm-ops-assistant"
+TITLE = _widget("genie_space_title", "lhm-ops-assistant")
 DESCRIPTION = (
     "Operations assistant for Lakehouse Market store managers. Answers questions about "
     "labor forecasts, loyalty members, supply chain, sentiment, and equipment maintenance "
