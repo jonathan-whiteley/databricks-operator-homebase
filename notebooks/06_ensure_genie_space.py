@@ -44,8 +44,8 @@ def _widget(name: str, default: str) -> str:
         pass
     return os.getenv(name.upper(), default)
 
-CATALOG = _widget("catalog", "retail_consumer_goods")
-SCHEMA = _widget("schema", "tth_ops_homebase")
+CATALOG = _widget("catalog", "main")
+SCHEMA = _widget("schema", "lakehouse_market")
 WAREHOUSE_ID = _widget("warehouse_id", "")
 if not WAREHOUSE_ID:
     raise RuntimeError("warehouse_id widget / WAREHOUSE_ID env must be set for Genie space creation")
@@ -216,6 +216,16 @@ except Exception:
 if not space_id:
     space_id = os.getenv("GENIE_SPACE_ID", "").strip()
 
+try:
+    dbutils.widgets.text("app_sp_id", "", "App service principal client id (for CAN_RUN grant)")
+except NameError:
+    pass
+app_sp_id = ""
+try:
+    app_sp_id = dbutils.widgets.get("app_sp_id").strip()
+except Exception:
+    pass
+
 w = WorkspaceClient()
 payload = {
     "title": TITLE,
@@ -240,3 +250,39 @@ else:
     print()
     print(f"  Set this on the App as GENIE_SPACE_ID: {new_id}")
     print(f"  URL: {w.config.host}/genie/rooms/{new_id}")
+
+# COMMAND ----------
+# Self-wire: persist the space id so the app resolves it from UC (no hardcoded
+# id, no post-run app.yaml rewrite), and grant the App SP CAN_RUN on the space.
+resolved_id = resp.get("space_id") or resp.get("id") or space_id
+if not resolved_id:
+    raise RuntimeError(f"Could not resolve space id from response: {resp!r}")
+
+spark.sql(f"USE CATALOG {CATALOG}")
+spark.sql(f"USE SCHEMA {SCHEMA}")
+spark.sql(
+    "CREATE TABLE IF NOT EXISTS app_config "
+    "(config_key STRING, config_value STRING) USING DELTA"
+)
+spark.sql(
+    "MERGE INTO app_config t "
+    f"USING (SELECT 'genie_space_id' AS k, '{resolved_id}' AS v) s "
+    "ON t.config_key = s.k "
+    "WHEN MATCHED THEN UPDATE SET t.config_value = s.v "
+    "WHEN NOT MATCHED THEN INSERT (config_key, config_value) VALUES (s.k, s.v)"
+)
+print(f"app_config.genie_space_id = {resolved_id}")
+
+if app_sp_id:
+    w.api_client.do(
+        "PUT",
+        f"/api/2.0/permissions/genie/{resolved_id}",
+        body={
+            "access_control_list": [
+                {"service_principal_name": app_sp_id, "permission_level": "CAN_RUN"}
+            ]
+        },
+    )
+    print(f"Granted CAN_RUN on space {resolved_id} to SP {app_sp_id}")
+else:
+    print("No app_sp_id provided; skipping CAN_RUN grant (bootstrap will handle it).")
