@@ -13,7 +13,7 @@
   - `databricks.yml`: `user_email` default = `jonathan.whiteley@databricks.com`; `warehouse_id` default = a pinned id.
   - `pyproject.toml`: author = personal name/email.
   - `README.md`, `ui/src/pages/ArchitectureView.tsx`, `docs/*`: deployed workspace URL, workspace id `66306676349647`, `fe-vm-...` host, branch name, `jdub_demo`.
-  - **Naming inconsistency:** `config.py` / notebook defaults use `retail_consumer_goods` / `tth_ops_homebase`; `app.yaml` uses `jdub_demo` / `lakehouse_market`. These must be standardized to one neutral pair (see §6: `retail_consumer_goods` / `lakehouse_market`).
+  - **Naming inconsistency:** `config.py` / notebook defaults use `retail_consumer_goods` / `tth_ops_homebase`; `app.yaml` uses `jdub_demo` / `lakehouse_market`. These are unified via a single source of truth (see §6: catalog `main`, schema `lakehouse_market`, defined once in `databricks.yml`).
 - `scripts/setup.sh` (10 stages) is long and error-prone for two reasons that we are removing:
   - **Model Serving two-stage stash/restore** — Python edits `serving.yml`/`app.yml`, deploys, then `git checkout` restores them, because the serving endpoint references a UC model that does not exist until the init job runs.
   - **Genie id capture + `app.yaml` regex rewrite** — after notebook 06 runs, the script scrapes the new space id and rewrites env values in `app.yaml`.
@@ -71,8 +71,9 @@ The user prefers "instance first, then app." Because the app degrades gracefully
 
 | File | Change |
 |---|---|
-| `app.yaml` | `LHM_CATALOG=retail_consumer_goods` / `LHM_SCHEMA=lakehouse_market` (match DAB var defaults). Remove `LABOR_ENDPOINT`, `GENIE_SPACE_ID`. Sibling-app URLs (`CONTRACT_RECON_URL`, `COMPUTER_VISION_URL`, `IRREGULAR_OPS_URL`) default to empty string. |
-| `databricks.yml` | `user_email` default removed/neutralized — bootstrap resolves it via `databricks current-user me`; `run_as` uses that. `warehouse_id` uses the existing name-lookup (`Serverless Starter Warehouse`), not a pinned id. Catalog/schema defaults standardized (§6). Full var table in §6.2. |
+| `app.yaml` | **Delete the entire `env:` section** — keep only `command:`. All env moves to `resources/app.yml` `config.env`, sourced from DAB vars (§6.2). |
+| `resources/app.yml` | Add `config.env` block with every env var sourced from `${var.*}`. Remove `LABOR_ENDPOINT`, `GENIE_SPACE_ID`. Sibling-app URLs default to empty (launcher hides when unset). |
+| `databricks.yml` | `user_email` default removed/neutralized — bootstrap resolves it via `databricks current-user me`; `run_as` uses that. `warehouse_id` uses the existing name-lookup (`Serverless Starter Warehouse`), not a pinned id. Full var table (single source of truth) in §6.2. |
 | `pyproject.toml` | author → generic (`Databricks Field Engineering`). |
 | `README.md` | Remove deployed URL, workspace id `66306676349647`, `fe-vm-...` host, branch name, `jdub_demo`. Full rewrite per §7. |
 | `ui/src/pages/ArchitectureView.tsx` | `jdub_demo.lakehouse_market · 21 tables …` → uses neutral catalog/schema label (or reads from `/api/meta`). |
@@ -83,38 +84,71 @@ The `/api/meta/apps` endpoint / `AppsLanding` must **hide** any sibling app whos
 
 ---
 
-## 6. Naming standardization & parameterization
+## 6. Naming standardization & single-source parameterization
 
 ### 6.1 Standard catalog/schema
-Use **one** neutral pair everywhere (`app.yaml`, `config.py`, `databricks.yml` var defaults, notebooks, README, ArchitectureView):
+Use **one** neutral pair everywhere (`config.py` fallback defaults, `databricks.yml` var defaults, notebooks, README, ArchitectureView):
 
-- **Catalog default:** `retail_consumer_goods`
+- **Catalog default:** `main` (the conventional Unity Catalog default catalog present in most workspaces, so a fresh deploy has a sensible target). Deployer overrides with one `--var catalog=...`.
 - **Schema default:** `lakehouse_market`
 
-All references currently using `jdub_demo` (catalog) or `tth_ops_homebase` (schema) are updated to match. Deployers override per-workspace via DAB vars (resource side) and env (app side).
+All references currently using `jdub_demo` / `retail_consumer_goods` (catalog) or `tth_ops_homebase` (schema) are updated to match.
 
-### 6.2 Parameterize the YAML maximally
-Goal: a deployer changes **only `databricks.yml` variable defaults** (or `--var` flags) to retarget the whole demo. `databricks.yml` is the single source of truth.
+### 6.2 Single source of truth (verified against DAB schema v0.299)
+Goal: a deployer changes **only `databricks.yml` variable defaults** (or `--var` flags) to retarget the whole demo — nothing else.
 
-**Important constraint:** DAB substitutes `${var.*}` only in `resources/*.yml` (and `databricks.yml` itself). **`app.yaml` is NOT templated by DAB** — its `env:` values are static strings the Apps runtime reads at boot. So parameterization splits into two layers:
+**This is achievable natively.** Verified against `databricks bundle schema`: the DAB **App resource supports an inline `config.env` block** (`resources.AppConfig` → `env` → list of `{name, value, value_from}`), and each `value` is a string that resolves `${var.*}` substitutions. Therefore:
 
-- **Resource layer (fully parameterized via `${var.*}`):** `resources/app.yml`, `resources/lakebase.yml`, `resources/jobs.yml` — every literal becomes a DAB var. Notebooks already receive `catalog`/`schema`/`warehouse_id` as `base_parameters: ${var.*}`; extend this so no notebook hardcodes a name.
-- **App layer (`app.yaml`):** carries **neutral defaults that match the DAB var defaults**. `config.py` reads them from env with the same defaults, so an unmodified checkout is internally consistent. For a non-default catalog/schema, the deployer sets the DAB var **and** the matching app env; the README documents this one-to-one mapping. (We deliberately do NOT rewrite `app.yaml` at deploy time — that fragility is exactly what we're removing.)
+- **Delete the entire `env:` section from `app.yaml`.** `app.yaml` keeps only the `command:` block (how uvicorn boots). The Apps runtime merges env from the resource's `config.env`.
+- **Define all env once in `resources/app.yml`** under `apps.homebase.config.env`, every value sourced from a `${var.*}`:
+  ```yaml
+  config:
+    env:
+      - name: LHM_CATALOG
+        value: ${var.catalog}
+      - name: LHM_SCHEMA
+        value: ${var.schema}
+      - name: DEMO_ANCHOR_DATE
+        value: ${var.demo_anchor_date}
+      - name: LHM_QUERY_CACHE_TTL
+        value: ${var.query_cache_ttl}
+      # sibling-app launcher URLs — default empty, hidden when unset
+      - name: CONTRACT_RECON_URL
+        value: ${var.contract_recon_url}
+      - name: COMPUTER_VISION_URL
+        value: ${var.computer_vision_url}
+      - name: IRREGULAR_OPS_URL
+        value: ${var.irregular_ops_url}
+      - name: LAKEBASE_INSTANCE
+        value: ${var.lakebase_instance}
+      - name: LAKEBASE_DB
+        value: ${var.lakebase_db}
+      # warehouse id + Lakebase creds still injected via `value_from` resource bindings
+  ```
+  `DATABRICKS_WAREHOUSE_ID` continues to use `value_from: warehouse-default` (the sql_warehouse binding); Lakebase `PGHOST/PGUSER/PGPASSWORD` continue to be injected by the `homebase-db` database binding. `GENIE_SPACE_ID` and `LABOR_ENDPOINT` are **removed** (Genie self-wires via UC config table §4; Model Serving is gone §3).
+- **`config.py`** keeps env-var reads with the standard defaults (§6.1) as a **safety net for local dev only** (where there's no DAB). In a deployed app the values always come from `config.env`. This is not a second source of truth — it's a fallback, and the defaults match the DAB var defaults so behavior is identical either way.
 
-**DAB variables in `databricks.yml`** (add/confirm defaults, all overridable):
+**DAB variables in `databricks.yml`** (the one place to edit):
 
 | Var | Default | Used by |
 |---|---|---|
-| `catalog` | `retail_consumer_goods` | resources/jobs (notebooks), grants |
-| `schema` | `lakehouse_market` | resources/jobs (notebooks), grants |
+| `catalog` | `main` | app config.env, notebooks, grants |
+| `schema` | `lakehouse_market` | app config.env, notebooks, grants |
 | `app_name` | `lakehouse-market-homebase` | resources/app.yml |
-| `warehouse_id` | lookup by name `Serverless Starter Warehouse` (not a pinned id) | resources/app.yml, jobs |
-| `lakebase_instance` | `lakehouse-market-app-db` | resources/lakebase.yml, resources/app.yml |
+| `warehouse_id` | lookup by name `Serverless Starter Warehouse` (not a pinned id) | app binding, jobs |
+| `lakebase_instance` | `lakehouse-market-app-db` | resources/lakebase.yml, app binding + config.env |
+| `lakebase_db` | `databricks_postgres` | app config.env |
 | `lakebase_capacity` | `CU_1` | resources/lakebase.yml |
-| `genie_space_title` | `lhm-ops-assistant` | resources/jobs (notebook 06 param) |
-| `warehouse_name` | `Serverless Starter Warehouse` | bootstrap warehouse lookup (optional) |
+| `demo_anchor_date` | `2025-10-30` | app config.env |
+| `query_cache_ttl` | `86400` | app config.env |
+| `genie_space_title` | `lhm-ops-assistant` | notebook 06 param |
+| `contract_recon_url` | `""` | app config.env (launcher hides if empty) |
+| `computer_vision_url` | `""` | app config.env |
+| `irregular_ops_url` | `""` | app config.env |
 
-`user_email` is **removed as a hardcoded default**; `run_as` and any deployer identity resolve from `databricks current-user me` in the bootstrap (or DAB's default run-as). If DAB requires a value, it's supplied via `--var user_email=$(...)` from the bootstrap, not committed.
+`user_email` is **removed as a hardcoded default**; `run_as`/deployer identity resolves from `databricks current-user me` in the bootstrap (supplied via `--var user_email=$(...)` if DAB requires it), not committed.
+
+**Net result:** retargeting to any workspace = edit `databricks.yml` var defaults (or pass `--var`). `app.yaml` has no environment-specific content at all.
 
 ---
 
@@ -159,7 +193,7 @@ Move the deep material out of the README into `docs/` and link it:
 ## 10. Success criteria
 
 1. `git grep -niE "jonathan|jdub|whiteley|66306676349647|fe-vm|little.?caesar|lce"` over shipping files (`app.yaml`, `databricks.yml`, `pyproject.toml`, `src/**`, `ui/src/**`) returns **zero** hits (docs may retain scrubbed generic references only).
-   Additionally, retargeting catalog/schema requires editing **only `databricks.yml` var defaults** (resource side) + the matching `app.yaml` env (app side) per the §6.2 mapping — no other file edits.
+   Additionally, retargeting catalog/schema (or any env) requires editing **only `databricks.yml` var defaults** (or passing `--var`) — `app.yaml` has no environment-specific content, so no other file edits.
 2. On a fresh workspace, `make setup` deploys the app to `RUNNING` with **no manual file edits** and **no two-stage stash/restore**.
 3. App boots and all read tabs work even if Lakebase/Genie aren't ready yet; write + Genie surfaces degrade with friendly messages, then light up once the init job + instance are ready.
 4. `/api/labor/recommend` returns a headcount with **no** Model Serving endpoint deployed.
