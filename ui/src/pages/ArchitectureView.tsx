@@ -53,7 +53,7 @@ const LAYER: Record<Layer, { fg: string; ring: string; tint: string; label: stri
     fg: "#7c3aed",
     ring: "rgba(124,58,237,0.40)",
     tint: "rgba(124,58,237,0.10)",
-    label: "Model Serving / FM",
+    label: "Foundation Models / FM",
   },
   genie: {
     fg: "#db2777",
@@ -249,7 +249,7 @@ const INITIAL_NODES: Node[] = [
 
   // Col 3 — Compute / Serve (includes Lakebase Postgres as the operational store)
   card("sql-warehouse", 640, 60, "SQL Warehouse", "Serverless · auto-stop 120m", "spark", "warehouse"),
-  card("model-serving", 640, 180, "Model Serving", "lhm-labor-recommender · ElasticNet", "labor", "ml"),
+  card("labor-model", 640, 180, "Labor Model (UC)", "labor_model_coefficients · ElasticNet", "labor", "uc"),
   card("fm", 640, 300, "Foundation Models", "Claude Sonnet 4.6 · Llama 3.3", "spark", "ml"),
   card("genie-space", 640, 420, "Genie Space", "lhm-ops-assistant · all 21 tables", "spark", "genie"),
   card("lakebase", 640, 560, "Lakebase Postgres", "lhm_app · 5 write tables", "diagram", "lakebase"),
@@ -321,13 +321,13 @@ const INITIAL_EDGES: Edge[] = [
 
   // UC → Compute fan-out
   edge("uc", "sql-warehouse", { color: LAYER.warehouse.fg }),
-  edge("uc", "model-serving", { color: LAYER.ml.fg, label: "labor training" }),
+  edge("uc", "labor-model", { color: LAYER.uc.fg, label: "coefficients read" }),
   edge("uc", "fm", { color: LAYER.ml.fg, label: "sentiment labels" }),
   edge("uc", "genie-space", { color: LAYER.genie.fg }),
 
   // Compute → App (live read paths — animated)
   edge("sql-warehouse", "app", { color: LAYER.warehouse.fg, animated: true }),
-  edge("model-serving", "app", { color: LAYER.ml.fg, animated: true }),
+  edge("labor-model", "app", { color: LAYER.uc.fg, animated: true }),
   edge("fm", "app", { color: LAYER.ml.fg, animated: true }),
   edge("genie-space", "app", { color: LAYER.genie.fg, animated: true }),
 
@@ -475,7 +475,7 @@ function LegendFooter() {
     { key: "source", label: "Sources" },
     { key: "uc", label: "Unity Catalog" },
     { key: "warehouse", label: "SQL Warehouse" },
-    { key: "ml", label: "Model Serving / FM" },
+    { key: "ml", label: "Foundation Models / FM" },
     { key: "genie", label: "Genie" },
     { key: "app", label: "Databricks App" },
     { key: "lakebase", label: "Lakebase" },
@@ -609,7 +609,7 @@ export default function ArchitectureView() {
       <PageHead
         icon="diagram"
         title="Architecture"
-        sub="How Homebase wires Unity Catalog reads, Lakebase writes, Genie, and Model Serving behind one Databricks App. Drag nodes · scroll to zoom · export to PNG/SVG."
+        sub="How Homebase wires Unity Catalog reads, Lakebase writes, Genie, and Foundation Models behind one Databricks App. Drag nodes · scroll to zoom · export to PNG/SVG."
       />
       <div
         style={{
