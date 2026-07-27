@@ -12,8 +12,8 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 import pandas as pd
 
-CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "retail_consumer_goods"
-SCHEMA  = dbutils.widgets.get("schema")  if "schema"  in dbutils.widgets.getAll() else "tth_ops_homebase"
+CATALOG = dbutils.widgets.get("catalog") if "catalog" in dbutils.widgets.getAll() else "main"
+SCHEMA  = dbutils.widgets.get("schema")  if "schema"  in dbutils.widgets.getAll() else "lakehouse_market"
 spark.sql(f"USE CATALOG {CATALOG}")
 spark.sql(f"USE SCHEMA {SCHEMA}")
 
@@ -45,3 +45,24 @@ with mlflow.start_run() as run:
         input_example=X.head(2),
     )
     print("trained run", run.info.run_id)
+
+# COMMAND ----------
+# Derive per-daypart linear coefficients from the fitted pipeline by probing it
+# at revenue 0 and 1000, then persist for the app's in-process /recommend.
+# (The app reads this table instead of calling a Model Serving endpoint.)
+import pandas as pd
+
+DAYPARTS = ["Breakfast", "Lunch", "Dinner", "Late"]
+coef_rows = []
+for dp in DAYPARTS:
+    probe = pd.DataFrame(
+        {"forecast_revenue": [0.0, 1000.0], "daypart": [dp, dp]}
+    )
+    y0, y1 = pipe.predict(probe)
+    base = float(y0)
+    per_dollar = float((y1 - y0) / 1000.0)
+    coef_rows.append((dp, base, per_dollar))
+
+coef_df = spark.createDataFrame(coef_rows, schema="daypart string, base double, per_dollar double")
+coef_df.write.mode("overwrite").saveAsTable(f"{CATALOG}.{SCHEMA}.labor_model_coefficients")
+print("wrote", CATALOG + "." + SCHEMA + ".labor_model_coefficients:", coef_rows)
