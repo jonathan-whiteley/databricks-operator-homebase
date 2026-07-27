@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/bootstrap.sh — one-shot deploy to a fresh workspace. Idempotent.
+# scripts/bootstrap.sh: one-shot deploy to a fresh workspace. Idempotent.
 #
 # Prereqs: databricks CLI v0.230+ authenticated; uv; node >= 20; jq.
 #
