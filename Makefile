@@ -3,7 +3,7 @@
 help:
 	@echo "Targets:"
 	@echo "  install   Install Python + UI deps (uv + npm)"
-	@echo "  setup     One-shot deploy from scratch (warehouse + grants + init + Genie + app)"
+	@echo "  setup     One-shot deploy from scratch (warehouse + deploy + grants + init)"
 	@echo "  dev       Start API (8000) and UI dev server (5173) in parallel"
 	@echo "  dev-api   Start FastAPI with reload"
 	@echo "  dev-ui    Start Vite dev server"
@@ -20,7 +20,7 @@ install:
 	cd ui && npm install
 
 setup: install
-	bash scripts/setup.sh
+	bash scripts/bootstrap.sh
 
 dev:
 	@trap 'kill 0' INT; \
