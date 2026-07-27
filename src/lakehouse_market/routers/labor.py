@@ -1,9 +1,10 @@
 # src/lakehouse_market/routers/labor.py
+from functools import lru_cache
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from ..config import get_settings
-from ..serving import invoke_serving
 from ..sql_utils import fetch_all, get_anchor_date
 
 router = APIRouter(prefix="/api/labor", tags=["labor"])
@@ -63,14 +64,38 @@ class RecommendResponse(BaseModel):
     headcount: int
 
 
+# Synthetic-label offsets baked into notebook 02's training target. Used as the
+# fallback when the trained-coefficients table is absent so /recommend never 500s.
+_HEURISTIC_OFFSETS = {"Breakfast": 1.0, "Lunch": 3.0, "Dinner": 2.0, "Late": 0.0}
+_PER_DOLLAR = 1.0 / 350.0
+
+
+@lru_cache(maxsize=1)
+def _load_coefficients() -> dict[str, tuple[float, float]]:
+    """Read per-daypart (base, per_dollar) from the trained-model coefficients
+    table written by notebook 02. Cached for the process. Returns {} when the
+    table is missing (fresh workspace before the init job) so callers fall back
+    to the heuristic."""
+    try:
+        rows = fetch_all("SELECT daypart, base, per_dollar FROM labor_model_coefficients")
+    except Exception:
+        return {}
+    return {r["daypart"]: (float(r["base"]), float(r["per_dollar"])) for r in rows}
+
+
+def compute_headcount(forecast_revenue: float, daypart: str) -> int:
+    """Headcount from the trained model's coefficients; heuristic fallback."""
+    coeffs = _load_coefficients()
+    if daypart in coeffs:
+        base, per_dollar = coeffs[daypart]
+    else:
+        base, per_dollar = _HEURISTIC_OFFSETS.get(daypart, 0.0), _PER_DOLLAR
+    return max(0, round(base + per_dollar * forecast_revenue))
+
+
 @router.post("/recommend", response_model=RecommendResponse)
 def recommend(req: RecommendRequest):
-    result = invoke_serving(
-        None,  # endpoint routed to config.labor_endpoint inside the helper
-        {"dataframe_records": [{"forecast_revenue": req.forecast_revenue, "daypart": req.daypart}]},
-    )
-    pred = int(result["predictions"][0])
-    return {"headcount": pred}
+    return {"headcount": compute_headcount(req.forecast_revenue, req.daypart)}
 
 
 from ..deps import get_lakebase_pool

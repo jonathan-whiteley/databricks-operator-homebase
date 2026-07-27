@@ -22,7 +22,6 @@ class Settings(BaseModel):
     lakebase_user: str = ""
     lakebase_password: str = ""
     genie_space_id: str = ""
-    labor_endpoint: str = "lhm-labor-recommender"
     fm_endpoint: str = "databricks-claude-sonnet-4-6"
     # Synthetic data ends 2025-10-30; queries anchor to this instead of current_date()
     # so KPIs always populate regardless of when the demo is run.
@@ -43,7 +42,6 @@ def get_settings() -> Settings:
         lakebase_user=os.getenv("LAKEBASE_USER") or os.getenv("PGUSER", ""),
         lakebase_password=os.getenv("LAKEBASE_PASSWORD") or os.getenv("PGPASSWORD", ""),
         genie_space_id=os.getenv("GENIE_SPACE_ID", ""),
-        labor_endpoint=os.getenv("LABOR_ENDPOINT", "lhm-labor-recommender"),
         fm_endpoint=os.getenv("FM_ENDPOINT", "databricks-claude-sonnet-4-6"),
         demo_anchor_date=os.getenv("DEMO_ANCHOR_DATE", "2025-10-30"),
     )

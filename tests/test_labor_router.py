@@ -20,12 +20,11 @@ def test_today_returns_dayparts(monkeypatch):
 
 
 def test_recommend_returns_headcount(monkeypatch):
-    def fake_invoke(_endpoint, payload):
-        return {"predictions": [int(payload["dataframe_records"][0]["forecast_revenue"] / 350) + 2]}
-    monkeypatch.setattr(labor_mod, "invoke_serving", fake_invoke)
+    from lakehouse_market.routers import labor as labor_mod
+    monkeypatch.setattr(labor_mod, "_load_coefficients", lambda: {})
     r = TestClient(app).post(
         "/api/labor/recommend",
         json={"forecast_revenue": 3500, "daypart": "Lunch"},
     )
     assert r.status_code == 200
-    assert r.json()["headcount"] == 12  # 3500/350 + 2
+    assert r.json()["headcount"] == 13  # heuristic: 3500/350 + Lunch offset 3
