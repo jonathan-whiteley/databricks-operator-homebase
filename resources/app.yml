@@ -1,7 +1,6 @@
-# Databricks App resource.
-# The app source code is the entire repo; app.yaml at the repo root tells the
-# runtime how to start the server.
-
+# Databricks App resource. The app source is the whole repo; app.yaml at the
+# repo root provides only the start command. All environment is defined here
+# (single source of truth), sourced from databricks.yml variables.
 resources:
   apps:
     homebase:
@@ -15,5 +14,29 @@ resources:
         - name: homebase-db
           database:
             instance_name: ${var.lakebase_instance}
-            database_name: databricks_postgres
+            database_name: ${var.lakebase_db}
             permission: CAN_CONNECT_AND_CREATE
+      config:
+        env:
+          - name: LHM_CATALOG
+            value: ${var.catalog}
+          - name: LHM_SCHEMA
+            value: ${var.schema}
+          - name: DATABRICKS_WAREHOUSE_ID
+            value_from: warehouse-default
+          - name: FM_ENDPOINT
+            value: ${var.fm_endpoint}
+          - name: DEMO_ANCHOR_DATE
+            value: ${var.demo_anchor_date}
+          - name: LHM_QUERY_CACHE_TTL
+            value: ${var.query_cache_ttl}
+          - name: LAKEBASE_INSTANCE
+            value: ${var.lakebase_instance}
+          - name: LAKEBASE_DB
+            value: ${var.lakebase_db}
+          - name: CONTRACT_RECON_URL
+            value: ${var.contract_recon_url}
+          - name: COMPUTER_VISION_URL
+            value: ${var.computer_vision_url}
+          - name: IRREGULAR_OPS_URL
+            value: ${var.irregular_ops_url}

@@ -15,8 +15,8 @@ from pydantic import BaseModel
 class Settings(BaseModel):
     databricks_host: str = ""
     warehouse_id: str = ""
-    catalog: str = "retail_consumer_goods"
-    schema_name: str = "tth_ops_homebase"
+    catalog: str = "main"
+    schema_name: str = "lakehouse_market"
     lakebase_host: str = ""
     lakebase_db: str = "homebase"
     lakebase_user: str = ""
@@ -33,8 +33,8 @@ def get_settings() -> Settings:
     return Settings(
         databricks_host=os.getenv("DATABRICKS_HOST", ""),
         warehouse_id=os.getenv("DATABRICKS_WAREHOUSE_ID", ""),
-        catalog=os.getenv("LHM_CATALOG", "retail_consumer_goods"),
-        schema_name=os.getenv("LHM_SCHEMA", "tth_ops_homebase"),
+        catalog=os.getenv("LHM_CATALOG", "main"),
+        schema_name=os.getenv("LHM_SCHEMA", "lakehouse_market"),
         # Databricks Apps `database` binding injects PGHOST/PGUSER/PGPASSWORD/PGDATABASE.
         # Fall back to LAKEBASE_* for local dev / explicit overrides.
         lakebase_host=os.getenv("LAKEBASE_HOST") or os.getenv("PGHOST", ""),

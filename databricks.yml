@@ -1,34 +1,59 @@
-# Databricks Asset Bundle (DAB) — root config for Lakehouse Market · Homebase.
-# Provisions: the App, Lakebase Postgres instance, the labor Model Serving
-# endpoint, and the init job that runs the data-gen + scoring notebooks.
+# Databricks Asset Bundle (DAB) -- root config for Lakehouse Market - Homebase.
+# Provisions: the App, the Lakebase Postgres instance, and the init job that
+# runs the data-gen + scoring + Genie notebooks. Retarget any workspace by
+# editing the variable defaults below (or passing --var).
 
 bundle:
   name: lakehouse-market-e2e-DAIS-demo
 
 variables:
   catalog:
-    description: Unity Catalog catalog name (must be writable by deployer)
-    default: retail_consumer_goods
+    description: Unity Catalog catalog (must be writable by the deployer). Default is the workspace default catalog.
+    default: main
   schema:
-    description: Schema inside the catalog
-    default: tth_ops_homebase
+    description: Schema inside the catalog.
+    default: lakehouse_market
   app_name:
-    description: Databricks App name
+    description: Databricks App name.
     default: lakehouse-market-homebase
-  lakebase_instance:
-    description: Lakebase (Postgres on Databricks) instance name
-    default: lakehouse-market-app-db
   warehouse_id:
-    description: SQL warehouse id the app should read from (resolved by scripts/setup.sh when empty)
+    description: SQL warehouse id the app reads from. Resolved by scripts/bootstrap.sh when empty.
+    default: ""
+  lakebase_instance:
+    description: Lakebase (Postgres on Databricks) instance name.
+    default: lakehouse-market-app-db
+  lakebase_db:
+    description: Lakebase database name.
+    default: databricks_postgres
+  lakebase_capacity:
+    description: Lakebase instance capacity.
+    default: CU_1
+  demo_anchor_date:
+    description: Synthetic data window end; used as "today" in date-filtered queries.
+    default: "2025-10-30"
+  query_cache_ttl:
+    description: In-process TTL cache seconds for warehouse reads (demo data changes only on redeploy).
+    default: "86400"
+  fm_endpoint:
+    description: Foundation Model endpoint for the Feedback digest.
+    default: databricks-claude-sonnet-4-6
+  genie_space_title:
+    description: Title of the Genie space created by the init job.
+    default: lhm-ops-assistant
+  app_sp_id:
+    description: App service principal client id; passed by bootstrap after the app deploys (empty at first deploy).
+    default: ""
+  contract_recon_url:
+    description: Optional sibling-app URL for the /apps launcher (hidden when empty).
+    default: ""
+  computer_vision_url:
+    description: Optional sibling-app URL for the /apps launcher (hidden when empty).
+    default: ""
+  irregular_ops_url:
+    description: Optional sibling-app URL for the /apps launcher (hidden when empty).
     default: ""
   user_email:
-    description: Deployer email (run-as for jobs + app)
-    default: jonathan.whiteley@databricks.com
-  genie_space_id:
-    description: Genie space id; populated after first manual Genie space creation
-    default: ""
-  app_sp_id:
-    description: App service principal client id for the CAN_RUN grant on the Genie space (optional; passed at bundle run time).
+    description: Deployer email for run-as; supplied by bootstrap via databricks current-user me.
     default: ""
 
 include:
@@ -46,8 +71,6 @@ targets:
     mode: development
     workspace:
       profile: DEFAULT
-    run_as:
-      user_name: ${var.user_email}
 
   dais:
     mode: production
@@ -59,4 +82,4 @@ targets:
       user_name: rcg-dais2026@databricks-events.com
     variables:
       catalog: retail_consumer_goods
-      schema: tth_ops_homebase
+      schema: lakehouse_market
