@@ -2,6 +2,7 @@
 from fastapi.testclient import TestClient
 
 from lakehouse_market.app import app
+from lakehouse_market.app_config import clear_cache as clear_app_config_cache
 from lakehouse_market.config import get_settings
 from lakehouse_market.routers import genie as g_mod
 
@@ -21,6 +22,7 @@ def test_ask_calls_genie_with_context(monkeypatch):
 
     monkeypatch.setenv("GENIE_SPACE_ID", "test-space")
     get_settings.cache_clear()
+    clear_app_config_cache()
     monkeypatch.setattr(g_mod, "create_conversation", fake_create)
     monkeypatch.setattr(g_mod, "poll_message", fake_poll)
 
@@ -37,9 +39,25 @@ def test_ask_calls_genie_with_context(monkeypatch):
 def test_ask_returns_friendly_message_when_unconfigured(monkeypatch):
     monkeypatch.setenv("GENIE_SPACE_ID", "")
     get_settings.cache_clear()
+    clear_app_config_cache()
     r = TestClient(app).post(
         "/api/genie/ask",
         json={"tab_id": "labor", "store_id": 1, "question": "anything"},
     )
     assert r.status_code == 200
-    assert "isn't configured" in r.json()["text"]
+    assert "not configured" in r.json()["text"].lower()
+
+
+def test_ask_degrades_when_no_space(monkeypatch):
+    from fastapi.testclient import TestClient
+    from lakehouse_market.app import app
+    from lakehouse_market.routers import genie as genie_router
+    monkeypatch.setattr(genie_router, "resolve_genie_space_id", lambda: "")
+    r = TestClient(app).post(
+        "/api/genie/ask",
+        json={"tab_id": "labor", "store_id": 1, "question": "how are sales?"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert "not configured" in body["text"].lower()
+    assert body["table"] is None

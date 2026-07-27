@@ -6,7 +6,7 @@ import time
 
 from databricks.sdk import WorkspaceClient
 
-from .config import get_settings
+from .app_config import resolve_genie_space_id
 
 _client: WorkspaceClient | None = None
 
@@ -25,8 +25,8 @@ def create_conversation(question: str) -> dict:
     where the actual message envelope (content/status/attachments/id) lives under
     `message`. The user's prompt text is what ends up in message.content; Genie's
     answer arrives later as either text or query attachments — poll for it."""
-    s = get_settings()
-    url = f"/api/2.0/genie/spaces/{s.genie_space_id}/start-conversation"
+    space_id = resolve_genie_space_id()
+    url = f"/api/2.0/genie/spaces/{space_id}/start-conversation"
     resp = _ws().api_client.do("POST", url, body={"content": question})
     msg = resp.get("message") or {}
     return {
@@ -40,9 +40,9 @@ def create_conversation(question: str) -> dict:
 
 def poll_message(conversation_id: str, message_id: str, timeout_s: int = 40) -> dict:
     """Poll until the Genie message reaches a terminal state (COMPLETED/FAILED)."""
-    s = get_settings()
+    space_id = resolve_genie_space_id()
     url = (
-        f"/api/2.0/genie/spaces/{s.genie_space_id}"
+        f"/api/2.0/genie/spaces/{space_id}"
         f"/conversations/{conversation_id}/messages/{message_id}"
     )
     deadline = time.time() + timeout_s
@@ -56,9 +56,9 @@ def poll_message(conversation_id: str, message_id: str, timeout_s: int = 40) -> 
 
 def fetch_query_result(conversation_id: str, message_id: str, attachment_id: str) -> dict:
     """Fetch the rows for a query attachment so we can render them."""
-    s = get_settings()
+    space_id = resolve_genie_space_id()
     url = (
-        f"/api/2.0/genie/spaces/{s.genie_space_id}/conversations/"
+        f"/api/2.0/genie/spaces/{space_id}/conversations/"
         f"{conversation_id}/messages/{message_id}/attachments/{attachment_id}/query-result"
     )
     try:
