@@ -2,9 +2,18 @@
 # Holds: app_labor_overrides, app_offer_pushes, app_purchase_orders,
 # app_review_responses, app_work_orders. DDL is applied by the app at startup
 # via src/lakehouse_market/lakebase_migrate.py.
+#
+# The instance is intentionally NOT a bundle-managed resource. A Databricks App
+# `database` binding requires the instance to already be AVAILABLE at
+# terraform-apply time, so creating it inside the same bundle deploy races the
+# app binding and fails. scripts/bootstrap.sh provisions it out of band
+# (idempotent, waits for AVAILABLE) before deploying; the app's `homebase-db`
+# binding in resources/app.yml then references it by name (${var.lakebase_instance}).
+#
+# To provision manually instead of via bootstrap:
+#   databricks database create-database-instance <name> --capacity CU_1
+#
+# To tear down (not covered by `bundle destroy`):
+#   databricks database delete-database-instance <name>
 
-resources:
-  database_instances:
-    homebase_db:
-      name: ${var.lakebase_instance}
-      capacity: ${var.lakebase_capacity}
+resources: {}
