@@ -30,28 +30,17 @@ FROM daily_sales_forecast
 pre = ColumnTransformer([("dp", OneHotEncoder(), ["daypart"])], remainder="passthrough")
 pipe = Pipeline([("pre", pre), ("reg", ElasticNet(alpha=0.05))])
 
-mlflow.set_experiment("/Shared/lhm-labor-recommender")
-with mlflow.start_run() as run:
-    X = df[["forecast_revenue", "daypart"]]
-    y = df["headcount"]
-    pipe.fit(X, y)
-    preds = pipe.predict(X.head(5))
-    signature = infer_signature(X.head(5), preds)
-    mlflow.sklearn.log_model(
-        pipe,
-        artifact_path="model",
-        registered_model_name=f"{CATALOG}.{SCHEMA}.lhm_labor_recommender",
-        signature=signature,
-        input_example=X.head(2),
-    )
-    print("trained run", run.info.run_id)
+X = df[["forecast_revenue", "daypart"]]
+y = df["headcount"]
+pipe.fit(X, y)
+print("model fitted on", len(df), "rows")
 
 # COMMAND ----------
 # Derive per-daypart linear coefficients from the fitted pipeline by probing it
 # at revenue 0 and 1000, then persist for the app's in-process /recommend.
-# (The app reads this table instead of calling a Model Serving endpoint.)
-import pandas as pd
-
+# The app reads THIS table (not a Model Serving endpoint), so this write is the
+# critical path: it runs BEFORE model registration so an MLflow/serialization
+# quirk can never block the app's labor recommendation.
 DAYPARTS = ["Breakfast", "Lunch", "Dinner", "Late"]
 coef_rows = []
 for dp in DAYPARTS:
@@ -66,3 +55,25 @@ for dp in DAYPARTS:
 coef_df = spark.createDataFrame(coef_rows, schema="daypart string, base double, per_dollar double")
 coef_df.write.mode("overwrite").saveAsTable(f"{CATALOG}.{SCHEMA}.labor_model_coefficients")
 print("wrote", CATALOG + "." + SCHEMA + ".labor_model_coefficients:", coef_rows)
+
+# COMMAND ----------
+# Register the model to Unity Catalog for MLflow lineage. This is best-effort:
+# the app does not call this model (it reads labor_model_coefficients above), so
+# a registration failure must not fail the job. Use cloudpickle serialization to
+# avoid the skops "untrusted types" rejection of ColumnTransformer(passthrough).
+mlflow.set_registry_uri("databricks-uc")
+mlflow.set_experiment("/Shared/lhm-labor-recommender")
+try:
+    with mlflow.start_run() as run:
+        signature = infer_signature(X.head(5), pipe.predict(X.head(5)))
+        mlflow.sklearn.log_model(
+            pipe,
+            artifact_path="model",
+            serialization_format="cloudpickle",
+            registered_model_name=f"{CATALOG}.{SCHEMA}.lhm_labor_recommender",
+            signature=signature,
+            input_example=X.head(2),
+        )
+        print("registered model, run", run.info.run_id)
+except Exception as e:
+    print(f"model registration skipped (non-fatal, app uses coefficients table): {e}")
