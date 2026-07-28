@@ -34,9 +34,11 @@ resources:
             value: ${var.lakebase_instance}
           - name: LAKEBASE_DB
             value: ${var.lakebase_db}
-          - name: CONTRACT_RECON_URL
-            value: ${var.contract_recon_url}
-          - name: COMPUTER_VISION_URL
-            value: ${var.computer_vision_url}
-          - name: IRREGULAR_OPS_URL
-            value: ${var.irregular_ops_url}
+          # Sibling-app launcher URLs (CONTRACT_RECON_URL / COMPUTER_VISION_URL /
+          # IRREGULAR_OPS_URL) are intentionally NOT declared here. A DAB var that
+          # resolves to an empty string renders a sourceless env entry ({name} with
+          # no value), which the Apps runtime rejects at deploy with "Must specify
+          # environment variable source using either value or valueFrom." The app
+          # reads these via os.getenv(...) or None and hides the launcher tile when
+          # unset, so omitting them is correct. To point at sibling apps on a given
+          # workspace, add them here with a non-empty value.
