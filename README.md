@@ -4,6 +4,8 @@ A Databricks App: a store manager's daily operations console for a fictional QSR
 
 **Modules:** Today · Labor · Inventory · Equipment · Loyalty · Guest Feedback.
 
+![Labor module: day-part scheduling with live Genie forecasts, crew mix, and labor % of sales](docs/images/labor.png)
+
 ## Architecture
 
 ```
