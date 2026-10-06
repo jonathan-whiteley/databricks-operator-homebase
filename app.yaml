@@ -35,12 +35,13 @@ env:
   # /apps launcher: per-workspace URLs for the sibling industry apps. Each
   # Databricks deploy can point at its own internal instance of each app by
   # overriding these. Surfaced via /api/meta/apps to AppsLanding on mount.
+  # PLACEHOLDERS: replace each value with the URL of that app in your workspace.
   - name: CONTRACT_RECON_URL
-    value: "https://brickyard-recon-7474648497946518.aws.databricksapps.com/"
+    value: "https://REPLACE-WITH-CONTRACT-RECON-APP-URL"
   - name: COMPUTER_VISION_URL
-    value: "https://lens-iq-7474650217702955.aws.databricksapps.com/guests"
+    value: "https://REPLACE-WITH-COMPUTER-VISION-APP-URL"
   - name: IRREGULAR_OPS_URL
-    value: "https://brick-airlines-irops-7474648119688217.aws.databricksapps.com/"
+    value: "https://REPLACE-WITH-IRREGULAR-OPS-APP-URL"
   - name: LAKEBASE_INSTANCE
     value: "lakehouse-market-app-db"
   - name: LAKEBASE_DB

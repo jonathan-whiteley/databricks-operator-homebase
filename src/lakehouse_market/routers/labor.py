@@ -23,11 +23,9 @@ class TodayResponse(BaseModel):
 
 @router.get("/today", response_model=TodayResponse)
 def today(store_id: int, date: str | None = None):
-    # If no row exists for the requested date, fall back to the most recent
-    # date that has data for this store. Demo data ends 2025-10-30 so any
-    # "today" past that returns empty without this fallback.
+    from datetime import date as _date_module
     rows = []
-    target_date = date or get_anchor_date()
+    display_date = date or _date_module.today().isoformat()
     if date:
         rows = fetch_all(
             """SELECT daypart, forecast_revenue, forecast_transactions
@@ -49,9 +47,7 @@ def today(store_id: int, date: str | None = None):
                                      WHEN 'Dinner' THEN 3 WHEN 'Late' THEN 4 END""",
             {"store_id": store_id},
         )
-        if rows:
-            target_date = get_anchor_date()
-    return {"store_id": store_id, "date": target_date, "dayparts": rows}
+    return {"store_id": store_id, "date": display_date, "dayparts": rows}
 
 
 class RecommendRequest(BaseModel):
